@@ -15,7 +15,7 @@ const ForgotPassword: React.FC = () => {
     try {
       await forgotPassword(email);
       setIsSent(true);
-    } catch (err) {
+    } catch {
       // Error handled by hook
     }
   };

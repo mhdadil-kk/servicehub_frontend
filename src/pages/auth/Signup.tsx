@@ -4,6 +4,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { Link } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
 import { User, Mail, Phone, Lock, ArrowRight } from "lucide-react";
+import toast from "react-hot-toast";
 import logo from "../../assets/logo.png";
 
 const Signup: React.FC = () => {
@@ -35,11 +36,11 @@ const Signup: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match");
+      toast.error("Passwords do not match");
       return;
     }
     if (!agreeTerms) {
-      alert("Please agree to the terms and conditions");
+      toast.error("Please agree to the terms and conditions");
       return;
     }
     await signup(formData);

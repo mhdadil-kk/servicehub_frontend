@@ -25,7 +25,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-6 font-sans">
-      {/* LOGO AREA */}
+      
       <div className="flex flex-col items-center mb-8 gap-3">
         <div className="w-full h-16 flex items-center justify-center">
           <img src={logo} alt="ServiceHub" className="h-full object-contain" />
@@ -83,7 +83,7 @@ const Login: React.FC = () => {
               onChange={() => setRememberMe(!rememberMe)}
               className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600/20 transition-all cursor-pointer"
             />
-            <label htmlFor="remember" className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors cursor-pointer select-none">Remember me for 30 days</label>
+            <label htmlFor="remember" className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors cursor-pointer select-none">Remember me</label>
           </div>
 
           <Button type="submit" loading={loading}>

@@ -1,8 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Table from "../../components/Common/Table";
 import Badge from "../../components/Common/Badge";
 import type { IUser } from "../../types/api.types";
-import { Search, Filter } from "lucide-react";
+import { Search } from "lucide-react";
 import { useAdmin } from "../../hooks/useAdmin";
 
 const AdminUsers: React.FC = () => {
@@ -14,9 +14,16 @@ const AdminUsers: React.FC = () => {
     unblockUser
   } = useAdmin();
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
+
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    const delayDebounceFn = setTimeout(() => {
+      fetchUsers(searchQuery, statusFilter, sortBy);
+    }, 500)
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, statusFilter, sortBy, fetchUsers]);
 
   const handleBlockAction = async (id: string) => {
     const success = await blockUser(id, "customer");
@@ -68,8 +75,8 @@ const AdminUsers: React.FC = () => {
           <button
             onClick={() => item.isDeleted ? handleUnblockAction(item.id) : handleBlockAction(item.id)}
             className={`px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all ${item.isDeleted
-                ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'
-                : 'bg-slate-50 text-rose-600 border-rose-100 hover:bg-rose-50'
+              ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'
+              : 'bg-slate-50 text-rose-600 border-rose-100 hover:bg-rose-50'
               }`}
           >
             {item.isDeleted ? 'Unlock Account' : 'Block Access'}
@@ -98,12 +105,32 @@ const AdminUsers: React.FC = () => {
           <input
             type="text"
             placeholder="Search by name, email or customer ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all placeholder:text-slate-300"
           />
         </div>
         <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-black text-slate-500 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-all uppercase tracking-widest">
-          <Filter size={14} />
-          <span>Status: All</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 focus:outline-none focus:border-blue-600"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active Only</option>
+            <option value="blocked">Blocked Only</option>
+          </select>
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 focus:outline-none focus:border-blue-600"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="name_asc">Name (A-Z)</option>
+            <option value="name_desc">Name (Z-A)</option>
+          </select>
         </div>
       </div>
 

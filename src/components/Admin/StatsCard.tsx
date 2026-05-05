@@ -4,7 +4,7 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 interface StatsCardProps {
   label: string;
   value: string | number;
-  icon: any;
+  icon: React.ElementType;
   trend: string;
   trendType: "up" | "down";
 }
@@ -34,3 +34,4 @@ const StatsCard: React.FC<StatsCardProps> = ({ label, value, icon: Icon, trend, 
 };
 
 export default StatsCard;
+

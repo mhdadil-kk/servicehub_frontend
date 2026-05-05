@@ -7,13 +7,13 @@ import type { ApiResponse, AuthResponse, SignupData, ResetPasswordData } from ".
 export const useAuth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { setUser, setToken, logout: clearStore } = useAuthStore();
+  const { setUser, setTokens, logout: clearStore } = useAuthStore();
   const navigate = useNavigate();
 
   const handleAuthSuccess = (response: ApiResponse<AuthResponse>) => {
     if (response.data) {
       setUser(response.data.user);
-      setToken(response.data.accessToken);
+      setTokens(response.data.accessToken, response.data.refreshToken);
       const role = response.data.user.role;
       if (role === "admin") navigate("/admin");
       else if (role === "provider") navigate("/provider");

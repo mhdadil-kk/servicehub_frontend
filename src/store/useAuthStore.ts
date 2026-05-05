@@ -4,15 +4,17 @@ import type { IUser } from "../types/api.types";
 interface AuthState {
   user: IUser | null;
   accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   setUser: (user: IUser) => void;
-  setToken: (token: string) => void;
+  setTokens: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: JSON.parse(localStorage.getItem("user") || "null"),
   accessToken: localStorage.getItem("accessToken"),
+  refreshToken: localStorage.getItem("refreshToken"),
   isAuthenticated: !!localStorage.getItem("accessToken"),
 
   setUser: (user) => {
@@ -20,14 +22,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user, isAuthenticated: true });
   },
 
-  setToken: (token) => {
-    localStorage.setItem("accessToken", token);
-    set({ accessToken: token, isAuthenticated: true });
+  setTokens: (accessToken, refreshToken) => {
+    localStorage.setItem("accessToken", accessToken);
+    localStorage.setItem("refreshToken", refreshToken);
+    set({ accessToken, refreshToken, isAuthenticated: true });
   },
 
   logout: () => {
     localStorage.removeItem("user");
     localStorage.removeItem("accessToken");
-    set({ user: null, accessToken: null, isAuthenticated: false });
+    localStorage.removeItem("refreshToken");
+    set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
   },
 }));
+

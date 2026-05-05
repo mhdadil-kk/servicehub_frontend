@@ -12,7 +12,7 @@ import {
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../hooks/useAuth";
 
-const SidebarItem = ({ icon: Icon, label, path, active }: { icon: any, label: string, path: string, active: boolean }) => (
+const SidebarItem = ({ icon: Icon, label, path, active }: { icon: React.ElementType, label: string, path: string, active: boolean }) => (
   <Link 
     to={path}
     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold text-sm ${

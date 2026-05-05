@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "../constants/api";
+import { useAuthStore } from "../store/useAuthStore";
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -24,28 +25,41 @@ axiosInstance.interceptors.request.use(
 // Response Interceptor
 axiosInstance.interceptors.response.use(
   (response) => {
-    // Return only the data portion of our common response model to simplify frontend calls
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
-    
-    // Global 401 handling
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       const isAuthRequest = originalRequest.url?.includes("/auth/login") || originalRequest.url?.includes("/auth/signup");
-      
+
       if (!isAuthRequest) {
         originalRequest._retry = true;
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
+        const refreshToken = localStorage.getItem("refreshToken");
+
+        if (refreshToken) {
+          try {
+            const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+            const { accessToken } = response.data.data;
+
+            useAuthStore.getState().setTokens(accessToken, refreshToken);
+
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            return axiosInstance(originalRequest);
+          } catch (refreshError) {
+
+            useAuthStore.getState().logout();
+          }
+        } else {
+          useAuthStore.getState().logout();
+        }
       }
     }
 
-    // Extract message from our common response model
     const message = error.response?.data?.message || "An unexpected error occurred.";
     return Promise.reject(new Error(message));
   }
 );
+
 
 export default axiosInstance;

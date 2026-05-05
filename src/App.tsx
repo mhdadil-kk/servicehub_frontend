@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import VerifyOtp from "./pages/auth/VerifyOtp";
@@ -50,7 +51,9 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App: React.FC = () => {
   return (
-    <Router>
+    <>
+      <Toaster position="top-right" />
+      <Router>
         <Routes>
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Signup /></PublicRoute>} />
@@ -69,6 +72,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
     </Router>
+    </>
   );
 };
 
