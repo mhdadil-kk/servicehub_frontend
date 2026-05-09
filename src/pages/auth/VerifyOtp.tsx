@@ -32,7 +32,6 @@ const VerifyOtp: React.FC = () => {
     newOtp[index] = value.substring(value.length - 1);
     setOtp(newOtp);
 
-    // Focus next
     if (value && index < 5 && inputRefs.current[index + 1]) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -52,7 +51,6 @@ const VerifyOtp: React.FC = () => {
     }
   };
 
-  // Skip redirect in dev mode if email is missing
   const shouldRedirect = !location.state?.email && typeof window !== 'undefined' && window.location.hostname !== 'localhost';
   if (shouldRedirect) return <Navigate to="/register" />;
 

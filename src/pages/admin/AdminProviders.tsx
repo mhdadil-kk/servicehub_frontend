@@ -2,17 +2,22 @@ import React, { useEffect, useState } from "react";
 import Table from "../../components/Common/Table";
 import Badge from "../../components/Common/Badge";
 import type { IUser } from "../../types/api.types";
+import { Pagination } from "../../components/Common/Pagination";
 import { Search, ShieldCheck, Clock, Ban } from "lucide-react";
 import { useAdmin } from "../../hooks/useAdmin";
 
 const AdminProviders: React.FC = () => {
   const {
     data,
+    total,
+    page,
+    limit,
     loading,
     fetchProviders,
     blockUser,
     unblockUser,
-    updateProviderStatus
+    updateProviderStatus,
+    setPage
   } = useAdmin();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -163,7 +168,15 @@ const AdminProviders: React.FC = () => {
         </select>
       </div>
 
-      <Table data={data} columns={columns} isLoading={loading} emptyMessage="No providers found." />
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <Table data={data} columns={columns} isLoading={loading} emptyMessage="No providers found." />
+        <Pagination 
+          total={total} 
+          limit={limit} 
+          currentPage={page} 
+          onPageChange={(newPage) => setPage(newPage)} 
+        />
+      </div>
 
       {/* FOOTER SUMMARY STATS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">

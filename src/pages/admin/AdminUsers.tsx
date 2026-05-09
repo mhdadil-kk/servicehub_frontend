@@ -2,16 +2,21 @@ import React, { useEffect, useState } from "react";
 import Table from "../../components/Common/Table";
 import Badge from "../../components/Common/Badge";
 import type { IUser } from "../../types/api.types";
+import { Pagination } from "../../components/Common/Pagination";
 import { Search } from "lucide-react";
 import { useAdmin } from "../../hooks/useAdmin";
 
 const AdminUsers: React.FC = () => {
   const {
     data,
+    total,
+    page,
+    limit,
     loading,
     fetchUsers,
     blockUser,
-    unblockUser
+    unblockUser,
+    setPage
   } = useAdmin();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,7 +139,15 @@ const AdminUsers: React.FC = () => {
         </div>
       </div>
 
-      <Table data={data} columns={columns} isLoading={loading} emptyMessage="No customers found." />
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <Table data={data} columns={columns} isLoading={loading} emptyMessage="No customers found." />
+        <Pagination 
+          total={total} 
+          limit={limit} 
+          currentPage={page} 
+          onPageChange={(newPage) => setPage(newPage)} 
+        />
+      </div>
     </div>
   );
 };

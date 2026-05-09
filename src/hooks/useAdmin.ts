@@ -6,6 +6,9 @@ import Swal from "sweetalert2";
 
 export const useAdmin = () => {
   const [data, setData] = useState<IUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,27 +16,29 @@ export const useAdmin = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminService.getAllUsers(search,status,sort);
+      const res = await adminService.getAllUsers(search, status, sort, page, limit);
       setData(res.data?.users || []);
+      setTotal(res.data?.total || 0);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to fetch users");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
-  const fetchProviders = useCallback(async (search?:string, status?:string, sort?:string) => {
+  const fetchProviders = useCallback(async (search?: string, status?: string, sort?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminService.getProviders(search, status, sort);
+      const res = await adminService.getProviders(search, status, sort, page, limit);
       setData(res.data?.providers || []);
+      setTotal(res.data?.total || 0);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to fetch providers");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
   const blockUser = useCallback(async (id: string, type: "customer" | "provider") => {
     const result = await Swal.fire({
@@ -105,8 +110,12 @@ export const useAdmin = () => {
 
   return {
     data,
+    total,
+    page,
+    limit,
     loading,
     error,
+    setPage,
     fetchUsers,
     fetchProviders,
     blockUser,

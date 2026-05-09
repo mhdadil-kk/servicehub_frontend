@@ -30,7 +30,6 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
-  // Use AdminLayout for admin routes, otherwise DashboardLayout
   if (user?.role === "admin") {
     return <AdminLayout>{children}</AdminLayout>;
   }
@@ -41,7 +40,6 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, user } = useAuthStore();
   if (isAuthenticated) {
-    // Redirect authenticated users to their dashboard based on role
     if (user?.role === "admin") return <Navigate to="/admin" />;
     if (user?.role === "provider") return <Navigate to="/provider" />;
     return <Navigate to="/user" />;

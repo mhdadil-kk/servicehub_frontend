@@ -3,10 +3,10 @@ import { API_ROUTES } from "../constants/api.routes";
 import type { ApiResponse, IUser } from "../types/api.types";
 
 export const adminService = {
-  getAllUsers: (search?:string, status?:string, sort?:string) => 
-    axiosInstance.get<unknown, ApiResponse<{ users: IUser[] }>>(
+  getAllUsers: (search?:string, status?:string, sort?:string, page?: number, limit?: number) => 
+    axiosInstance.get<unknown, ApiResponse<{ users: IUser[], total: number }>>(
       API_ROUTES.ADMIN.USERS,
-      { params: { search,status,sort } } 
+      { params: { search, status, sort, page, limit } } 
     ),
 
   deleteUser: (id: string) => 
@@ -15,10 +15,10 @@ export const adminService = {
   unblockUser: (id: string) => 
     axiosInstance.patch<unknown, ApiResponse<{ user: IUser }>>(API_ROUTES.ADMIN.USER_ACTION(id, 'unblock')),
 
-  getProviders: (search?:string, status?:string, sort?:string) => 
-    axiosInstance.get<unknown, ApiResponse<{ providers: IUser[] }>>(
+  getProviders: (search?:string, status?:string, sort?:string, page?: number, limit?: number) => 
+    axiosInstance.get<unknown, ApiResponse<{ providers: IUser[], total: number }>>(
       API_ROUTES.ADMIN.PROVIDERS,
-      { params: { search,status,sort } } 
+      { params: { search, status, sort, page, limit } } 
     ),
 
   updateProviderStatus: (id: string, status: string) => 
