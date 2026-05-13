@@ -13,5 +13,7 @@ export const API_ROUTES = {
     USER_ACTION: (id: string, action: string) => `/admin/users/${id}/${action}`,
     PROVIDERS: "/admin/providers",
     PROVIDER_STATUS: (id: string) => `/admin/providers/${id}/status`,
+    SERVICES: "/admin/services",
+    DELETE_SERVICE: (id: string) => `/admin/services/${id}`,
   }
 };

@@ -50,7 +50,6 @@ export const Pagination: React.FC<PaginationProps> = ({ total, limit, currentPag
               <ChevronLeft className="h-5 h-5" aria-hidden="true" />
             </button>
             
-            {/* Simple Page Numbers */}
             {[...Array(totalPages)].map((_, i) => (
               <button
                 key={i + 1}

@@ -1,6 +1,6 @@
 import React from "react";
 import StatsCard from "../../components/Admin/StatsCard";
-import { Users, Briefcase, CalendarCheck, DollarSign, ArrowUpRight } from "lucide-react";
+import { Users, Briefcase, CalendarCheck, Wallet, ArrowUpRight } from "lucide-react";
 
 /**
  * MOCK DATA FOR DEMO PURPOSES
@@ -38,7 +38,7 @@ const AdminDashboard: React.FC = () => {
         <StatsCard label="Total Users" value="12,450" icon={Users} trend="12%" trendType="up" />
         <StatsCard label="Total Providers" value="1,840" icon={Briefcase} trend="5%" trendType="up" />
         <StatsCard label="Total Bookings" value="45,200" icon={CalendarCheck} trend="8%" trendType="up" />
-        <StatsCard label="Total Revenue" value="$1,250,000" icon={DollarSign} trend="15%" trendType="up" />
+        <StatsCard label="Total Revenue" value="₹1,25,00,000" icon={Wallet} trend="15%" trendType="up" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -106,7 +106,7 @@ const AdminDashboard: React.FC = () => {
           
           <div className="mt-10 pt-8 border-t border-slate-100 flex-1 flex flex-col justify-center items-center text-center">
              <div className="w-24 h-24 rounded-full border-[10px] border-slate-100 border-t-blue-600 border-r-blue-500 flex items-center justify-center relative">
-                <span className="text-xs font-black text-slate-900 leading-tight">$1.25M<br/><span className="text-[8px] text-slate-400 font-bold uppercase">TOTAL YTD</span></span>
+                <span className="text-xs font-black text-slate-900 leading-tight">₹1.25Cr<br/><span className="text-[8px] text-slate-400 font-bold uppercase">TOTAL YTD</span></span>
              </div>
              <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest leading-relaxed">Revenue Breakdown<br/>Monthly Analysis</p>
           </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Table from "../../components/Common/Table";
 import Badge from "../../components/Common/Badge";
 import type { IUser } from "../../types/api.types";
@@ -116,9 +117,12 @@ const AdminProviders: React.FC = () => {
             </button>
           )}
 
-          <button className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm shadow-blue-100 hover:bg-blue-700 transition-all">
+          <Link 
+            to={`/admin/providers/${item.id}`}
+            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center"
+          >
             View
-          </button>
+          </Link>
         </div>
       )
     }

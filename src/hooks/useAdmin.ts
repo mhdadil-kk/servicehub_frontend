@@ -54,7 +54,7 @@ export const useAdmin = () => {
 
     try {
       await adminService.deleteUser(id);
-      setData(prev => prev.filter(u => u.id !== id)); // Immediate UI update or refetch
+      setData(prev => prev.filter(u => u.id !== id)); 
       toast.success(`${type} blocked successfully`);
       return true;
     } catch (err: unknown) {

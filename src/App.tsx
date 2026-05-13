@@ -10,12 +10,16 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProviders from "./pages/admin/AdminProviders";
+import AdminServices from "./pages/admin/AdminServices";
+import AdminProviderDetail from "./pages/admin/AdminProviderDetail";
 import UserDashboard from "./pages/user/UserDashboard";
 import ProviderDashboard from "./pages/provider/ProviderDashboard";
 import DashboardLayout from "./components/DashboardLayout";
 import AdminLayout from "./components/AdminLayout";
 import { useAuthStore } from "./store/useAuthStore";
 
+
+import ProviderOnboarding from "./pages/provider/ProviderOnboarding";
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { isAuthenticated, user } = useAuthStore();
@@ -30,6 +34,11 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
+  // Onboarding is now handled via a modal on the dashboard
+  if (user?.role === "provider" && user?.status === "pending" && location.pathname === "/onboarding") {
+     // Allow access to /onboarding if specifically visited, but don't force it
+  }
+
   if (user?.role === "admin") {
     return <AdminLayout>{children}</AdminLayout>;
   }
@@ -41,11 +50,15 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, user } = useAuthStore();
   if (isAuthenticated) {
     if (user?.role === "admin") return <Navigate to="/admin" />;
-    if (user?.role === "provider") return <Navigate to="/provider" />;
+    if (user?.role === "provider") {
+       return <Navigate to="/provider" />;
+    }
     return <Navigate to="/user" />;
   }
   return <>{children}</>;
 };
+
+import LandingPage from "./pages/LandingPage";
 
 const App: React.FC = () => {
   return (
@@ -53,6 +66,7 @@ const App: React.FC = () => {
       <Toaster position="top-right" />
       <Router>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Signup /></PublicRoute>} />
           <Route path="/verify-otp" element={<PublicRoute><VerifyOtp /></PublicRoute>} />
@@ -64,10 +78,12 @@ const App: React.FC = () => {
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsers /></ProtectedRoute>} />
           <Route path="/admin/providers" element={<ProtectedRoute allowedRoles={["admin"]}><AdminProviders /></ProtectedRoute>} />
+          <Route path="/admin/providers/:id" element={<ProtectedRoute allowedRoles={["admin"]}><AdminProviderDetail /></ProtectedRoute>} />
+          <Route path="/admin/services" element={<ProtectedRoute allowedRoles={["admin"]}><AdminServices /></ProtectedRoute>} />
+          
+          <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderOnboarding /></ProtectedRoute>} />
           <Route path="/provider" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderDashboard /></ProtectedRoute>} />
           <Route path="/user" element={<ProtectedRoute allowedRoles={["user"]}><UserDashboard /></ProtectedRoute>} />
-          
-          <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
     </Router>
     </>
