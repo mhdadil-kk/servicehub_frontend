@@ -4,9 +4,7 @@ import {
   Calendar, 
   CheckCircle2, 
   Clock, 
-  Wallet, 
-  ArrowUpRight,
-  MoreHorizontal
+  Wallet
 } from "lucide-react";
 
 const UserDashboard: React.FC = () => {

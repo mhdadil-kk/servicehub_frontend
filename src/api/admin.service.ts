@@ -25,7 +25,7 @@ export const adminService = {
     axiosInstance.patch<unknown, ApiResponse<{ user: IUser }>>(API_ROUTES.ADMIN.PROVIDER_STATUS(id), { status }),
 
   getProviderDetail: (id: string) => 
-    axiosInstance.get<unknown, ApiResponse<any>>(`/admin/providers/${id}`),
+    axiosInstance.get<unknown, ApiResponse<any>>(`/admin/providers/${id}`),  
 
   verifyProvider: (id: string, status: 'approved' | 'rejected', remarks?: string) => 
     axiosInstance.post<unknown, ApiResponse<null>>(`/admin/providers/${id}/verify`, { status, remarks }),

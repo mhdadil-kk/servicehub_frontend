@@ -3,10 +3,24 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { adminService } from '../../api/admin.service';
 import toast from 'react-hot-toast';
 import { 
-  User, Mail, Phone, MapPin, Calendar, ShieldCheck, 
+  User, Mail, Phone, MapPin, ShieldCheck, 
   CheckCircle2, XCircle, ChevronLeft, Building2, Wallet, 
-  ExternalLink, FileText, AlertTriangle 
+  ExternalLink, FileText 
 } from 'lucide-react';
+
+import { MapContainer, TileLayer, Marker, Circle } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
 
 const AdminProviderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -145,17 +159,56 @@ const AdminProviderDetail: React.FC = () => {
                             <p className="text-lg font-black text-slate-900">₹{provider.hourlyRate}</p>
                          </div>
                       </div>
-                      <div className="flex items-center gap-3 text-right">
-                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Radius</p>
-                            <p className="text-lg font-black text-slate-900">{provider.serviceRadius} km</p>
-                         </div>
-                         <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><MapPin size={18} /></div>
-                      </div>
                    </div>
                 </div>
              </div>
           </div>
+
+          {/* Location & Operating Base Card */}
+          {provider.location?.coordinates && (
+            <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+               <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                     <MapPin className="text-blue-600" size={20} /> Operating Base & Service Area
+                  </h3>
+                  <div className="text-right">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Radius</p>
+                     <p className="text-sm font-black text-blue-600">{provider.serviceRadius} miles</p>
+                  </div>
+               </div>
+               <div className="p-8 space-y-6">
+                  <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                     <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                        <MapPin size={18} />
+                     </div>
+                     <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registered Address</p>
+                        <p className="text-sm font-bold text-slate-900">{provider.address || "No address provided"}</p>
+                     </div>
+                  </div>
+                  
+                  <div className="h-[300px] w-full rounded-3xl overflow-hidden border-4 border-slate-50 relative z-0 shadow-inner">
+                     <MapContainer 
+                        center={{ lat: provider.location.coordinates[1], lng: provider.location.coordinates[0] }} 
+                        zoom={12} 
+                        scrollWheelZoom={false} 
+                        style={{ height: '100%', width: '100%' }}
+                     >
+                        <TileLayer
+                           attribution='&copy; OpenStreetMap contributors'
+                           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={{ lat: provider.location.coordinates[1], lng: provider.location.coordinates[0] }} />
+                        <Circle 
+                           center={[provider.location.coordinates[1], provider.location.coordinates[0]]} 
+                           pathOptions={{ fillColor: '#2563eb', color: '#2563eb', weight: 1, fillOpacity: 0.15 }}
+                           radius={(provider.serviceRadius || 25) * 1609.34} // miles to meters
+                        />
+                     </MapContainer>
+                  </div>
+               </div>
+            </div>
+          )}
 
           {/* Verification Documents */}
           <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">

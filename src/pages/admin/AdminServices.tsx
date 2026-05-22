@@ -3,12 +3,8 @@ import { adminService } from "../../api/admin.service";
 import { 
   Plus, 
   Trash2, 
-  Search, 
   Briefcase, 
-  AlertCircle,
   X,
-  CheckCircle,
-  IndianRupee,
   Activity
 } from "lucide-react";
 import toast from "react-hot-toast";

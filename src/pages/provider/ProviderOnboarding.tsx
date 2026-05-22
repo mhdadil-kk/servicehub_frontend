@@ -37,6 +37,8 @@ const ProviderOnboarding: React.FC = () => {
     phone: user?.phone || "",
     address: "",
     radius: 25,
+    latitude: null as number | null,
+    longitude: null as number | null,
     hourlyRate: "",
     // Bank Details
     accountHolderName: "",
@@ -51,6 +53,72 @@ const ProviderOnboarding: React.FC = () => {
 
   const profileInputRef = useRef<HTMLInputElement>(null);
   const docsInputRef = useRef<HTMLInputElement>(null);
+
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Geolocate device using HTML5 Geolocation API
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setForm(prev => ({
+          ...prev,
+          latitude,
+          longitude
+        }));
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          if (data && data.display_name) {
+            setForm(prev => ({ ...prev, address: data.display_name }));
+          }
+        } catch (err) {
+          console.error("Failed to reverse geocode coordinate:", err);
+        }
+        setIsLocating(false);
+        toast.success("Location locked!");
+      },
+      () => {
+        setIsLocating(false);
+        toast.error("Failed to get location. Please input address manually.");
+      }
+    );
+  };
+
+  // Resolve coordinate from address text search (Nominatim)
+  const handleAddressBlur = async () => {
+    if (!form.address || form.address.trim().length < 5) return;
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}`
+      );
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        setForm(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lon
+        }));
+        toast.success("Address coordinates verified!");
+      } else {
+        toast.error("Address not recognized. Please type a valid address.");
+      }
+    } catch (err) {
+      console.error("Geocoding address error:", err);
+    }
+  };
 
   const handleProfilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -97,6 +165,9 @@ const ProviderOnboarding: React.FC = () => {
           setForm(prev => ({
             ...prev,
             radius: profile.serviceRadius || prev.radius,
+            address: profile.address || "",
+            latitude: profile.location?.coordinates?.[1] || null,
+            longitude: profile.location?.coordinates?.[0] || null,
             hourlyRate: profile.hourlyRate || "",
             accountHolderName: profile.bankDetails?.accountHolderName || "",
             bankName: profile.bankDetails?.bankName || "",
@@ -126,9 +197,18 @@ const ProviderOnboarding: React.FC = () => {
     try {
       if (currentStep === 1) {
         // Step 1: Profile
+        if (!form.address) {
+          throw new Error("Please enter your address");
+        }
+        if (form.latitude === null || form.longitude === null) {
+          throw new Error("Address location not verified. Please make sure to search for a valid address or click 'Use Current Location'.");
+        }
         const formData = new FormData();
         formData.append("bio", "I am a professional service provider committed to quality."); 
         formData.append("serviceRadius", form.radius.toString());
+        formData.append("address", form.address);
+        formData.append("latitude", form.latitude.toString());
+        formData.append("longitude", form.longitude.toString());
         if (profilePhoto) {
           formData.append("profilePhoto", profilePhoto);
         }
@@ -368,27 +448,60 @@ const ProviderOnboarding: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Street Address</label>
-                   <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input type="text" placeholder="1234 Main St, Apt 4B" className="w-full bg-slate-50/50 border border-slate-100 rounded-xl pl-12 pr-4 py-3 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all" />
-                   </div>
-                </div>
+                    <div className="flex justify-between items-center">
+                       <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Street Address</label>
+                       <button 
+                          type="button"
+                          onClick={handleUseCurrentLocation}
+                          disabled={isLocating}
+                          className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors disabled:opacity-50"
+                       >
+                          {isLocating ? "Locating..." : "Use Current Location"}
+                       </button>
+                    </div>
+                    <div className="relative">
+                       <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                       <input 
+                          type="text" 
+                          value={form.address}
+                          onChange={e => setForm({ ...form, address: e.target.value })}
+                          onBlur={handleAddressBlur}
+                          placeholder="1234 Main St, City, State" 
+                          className="w-full bg-slate-50/50 border border-slate-100 rounded-xl pl-12 pr-4 py-3 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all" 
+                       />
+                    </div>
+                    {form.latitude && (
+                       <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest px-1">
+                          ✓ Coordinates Captured: {form.latitude.toFixed(5)}, {form.longitude?.toFixed(5)}
+                       </p>
+                    )}
+                 </div>
 
-                <div className="space-y-6">
-                   <div className="flex justify-between items-center">
-                      <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Service Radius</label>
-                      <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-3 py-1 rounded-full border border-blue-100">25 miles</span>
-                   </div>
-                   <input type="range" className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-                   <div className="h-48 bg-blue-50 rounded-3xl border border-blue-100 relative overflow-hidden flex items-center justify-center">
-                      {/* Map Placeholder */}
-                      <div className="absolute inset-0 opacity-20 bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/-74.0060,40.7128,12/800x400?access_token=pk.xxx')] bg-cover" />
-                      <div className="relative w-12 h-12 bg-blue-600/20 rounded-full border-2 border-blue-600 flex items-center justify-center animate-pulse">
-                         <div className="w-3 h-3 bg-blue-600 rounded-full shadow-lg" />
-                      </div>
-                   </div>
-                </div>
+                 <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                       <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Service Radius</label>
+                       <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-3 py-1 rounded-full border border-blue-100">{form.radius} miles</span>
+                    </div>
+                    <input 
+                       type="range" 
+                       min="5"
+                       max="100"
+                       step="5"
+                       value={form.radius}
+                       onChange={e => setForm({ ...form, radius: Number(e.target.value) })}
+                       className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" 
+                    />
+                    <div className="h-48 bg-blue-50 rounded-3xl border border-blue-100 relative overflow-hidden flex items-center justify-center">
+                       {/* Map Placeholder */}
+                       <div className="absolute inset-0 opacity-20 bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/-74.0060,40.7128,12/800x400?access_token=pk.xxx')] bg-cover" />
+                       <div className="relative w-16 h-16 bg-blue-600/10 rounded-full border-2 border-blue-600 flex items-center justify-center transition-all" style={{
+                          transform: `scale(${1 + (form.radius / 100)})`
+                       }}>
+                          <div className="w-3 h-3 bg-blue-600 rounded-full shadow-lg animate-ping absolute" />
+                          <div className="w-3 h-3 bg-blue-600 rounded-full shadow-lg relative z-10" />
+                       </div>
+                    </div>
+                 </div>
               </div>
             </div>
           )}
@@ -587,7 +700,7 @@ const ProviderOnboarding: React.FC = () => {
 
           {currentStep === 4 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-               <div>
+                <div>
                 <div className="flex justify-between items-center mb-1">
                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Payout Setup</h2>
                    <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">
@@ -596,7 +709,7 @@ const ProviderOnboarding: React.FC = () => {
                 </div>
                 <p className="text-slate-500 font-medium max-w-xl">Enter your bank account details where you'd like to receive your earnings. This information is used for direct deposit payouts.</p>
               </div>
-
+ 
               <div className="bg-white p-12 rounded-[40px] shadow-sm border border-slate-100 max-w-2xl mx-auto space-y-8">
                  <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Account Holder Name</label>

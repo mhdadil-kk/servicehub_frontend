@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
+import { providerApi } from "../../api/provider.service";
 import ProviderOnboardingModal from "../../components/ProviderOnboardingModal";
+import toast from "react-hot-toast";
 import { 
   BarChart3, 
   CheckCircle2, 
@@ -9,11 +11,46 @@ import {
   Check,
   X,
   MapPin,
-  Calendar
+  Calendar,
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 
 const ProviderDashboard: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
+  const [showReapplyModal, setShowReapplyModal] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
+  const [isResetting, setIsResetting] = useState(false);
+
+  useEffect(() => {
+    providerApi.getProfile().then(res => {
+      if (res.data) {
+        setProfile(res.data);
+        if (user && user.status !== res.data.onboardingStatus) {
+          setUser({ ...user, status: res.data.onboardingStatus });
+        }
+      }
+    }).catch(err => {
+      console.error("Failed to load provider profile:", err);
+    });
+  }, [user?.status]);
+
+  const handleReapply = async () => {
+    try {
+      setIsResetting(true);
+      await providerApi.resetForReapply();
+      if (user) {
+        setUser({ ...user, status: "pending" });
+      }
+      setShowReapplyModal(true);
+      toast.success("Application reset. Please fill out onboarding steps again.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to reset application state");
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const stats = [
     { label: "Total Bookings", value: "1,284", icon: BarChart3, color: "text-blue-600 bg-blue-50", trend: "+12.5%" },
@@ -52,12 +89,12 @@ const ProviderDashboard: React.FC = () => {
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {/* Onboarding Modal Overlay - Only show if strictly pending */}
-      {user?.status === 'pending' && (
+      {/* Onboarding Modal Overlay - Show if pending or manually re-applying */}
+      {(user?.status === 'pending' || showReapplyModal) && (
         <ProviderOnboardingModal 
           isOpen={true} 
           onComplete={() => {
-            // Handled by store update
+            setShowReapplyModal(false);
           }} 
         />
       )}
@@ -158,16 +195,64 @@ const ProviderDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* --- ALERTS --- */}
+      {/* --- REJECTION MODAL (centered, blurred backdrop) --- */}
       {user?.status === 'rejected' && (
-        <div className="bg-rose-50 border-l-4 border-rose-500 p-6 rounded-2xl flex items-center gap-4 animate-pulse">
-           <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center text-rose-600 shrink-0">
-              <X size={24} />
-           </div>
-           <div>
-              <h4 className="text-rose-900 font-black tracking-tight">Application Rejected</h4>
-              <p className="text-rose-600 text-sm font-medium mt-0.5 italic">Your account status is currently rejected. Please update your profile or contact support for a re-review.</p>
-           </div>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          {/* Blurred backdrop */}
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" />
+
+          {/* Modal card */}
+          <div className="relative w-full max-w-md bg-white rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-6 duration-500">
+            
+            {/* Top gradient accent */}
+            <div className="h-2 w-full bg-gradient-to-r from-rose-600 via-rose-500 to-orange-400" />
+
+            {/* Icon area */}
+            <div className="flex flex-col items-center pt-10 pb-2 px-10">
+              <div className="w-20 h-20 bg-rose-100 rounded-[28px] flex items-center justify-center text-rose-600 shadow-lg shadow-rose-100 mb-6">
+                <AlertTriangle size={36} strokeWidth={2} />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-2">Application Status</p>
+              <h2 className="text-2xl font-black text-slate-900 text-center tracking-tight">Application Rejected</h2>
+              <p className="text-sm font-medium text-slate-500 text-center mt-2 leading-relaxed">
+                Your provider application was reviewed and could not be approved at this time.
+              </p>
+            </div>
+
+            {/* Reason box */}
+            <div className="px-10 pb-4 pt-6">
+              {profile?.rejectionReason ? (
+                <div className="bg-rose-50 border border-rose-100 rounded-3xl p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Reason from Admin</p>
+                  </div>
+                  <p className="text-sm font-semibold text-rose-700 leading-relaxed italic">
+                    "{profile.rejectionReason}"
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 text-center">
+                  <p className="text-xs font-bold text-slate-400">No specific reason was provided by the admin.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="px-10 pb-10 pt-2 space-y-3">
+              <button
+                onClick={handleReapply}
+                disabled={isResetting}
+                className="w-full bg-rose-600 text-white py-4 rounded-[20px] font-black text-sm shadow-xl shadow-rose-200 hover:bg-rose-700 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <RefreshCw size={16} className={isResetting ? 'animate-spin' : ''} />
+                {isResetting ? "Preparing your application..." : "Review & Re-apply"}
+              </button>
+              <p className="text-center text-[10px] font-bold text-slate-400">
+                You can update your information and resubmit for review.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

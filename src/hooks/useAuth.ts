@@ -16,8 +16,8 @@ export const useAuth = () => {
       setTokens(response.data.accessToken, response.data.refreshToken);
       const role = response.data.user.role;
       if (role === "admin") navigate("/admin");
-      else if (role === "provider") navigate("/provider");
-      else navigate("/user");
+      else if (role === "provider") navigate("/provider/dashboard");
+      else navigate("/user/dashboard");
     }
   };
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, MapPin, Star, ShieldCheck, Clock, UserCheck, Home, Droplet, Zap, Truck, Search as SearchIcon, Calendar, Coffee, Globe, Mail } from 'lucide-react';
+import { Search, Star, Home, Droplet, Zap, Truck, Calendar, Coffee, Globe, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
 

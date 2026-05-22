@@ -21,20 +21,37 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const location = useLocation();
   const navigate = useNavigate();
 
+  const getHeaderTitle = () => {
+    if (location.pathname === "/user" || location.pathname === "/user/dashboard") return "Dashboard";
+    if (location.pathname === "/user/browse") return "Browse Services";
+    if (location.pathname === "/user/bookings") return "My Bookings";
+    if (location.pathname === "/user/messages") return "Messages";
+    if (location.pathname === "/user/profile" || location.pathname === "/provider/profile") return "Profile";
+    
+    if (location.pathname.startsWith("/provider")) {
+      if (location.pathname === "/provider/bookings") return "Bookings";
+      if (location.pathname === "/provider/availability") return "Availability";
+      if (location.pathname === "/provider/revenue") return "Revenue";
+      if (location.pathname === "/provider/messages") return "Messages";
+      return "Provider Dashboard";
+    }
+    return "Dashboard";
+  };
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
   const userNavigation = [
-    { name: "Dashboard", href: "/user", icon: LayoutDashboard },
-    { name: "Browse Services", href: "/browse", icon: Search },
-    { name: "My Bookings", href: "/bookings", icon: Calendar },
-    { name: "Messages", href: "/messages", icon: MessageSquare },
+    { name: "Dashboard", href: "/user/dashboard", icon: LayoutDashboard },
+    { name: "Browse Services", href: "/user/browse", icon: Search },
+    { name: "My Bookings", href: "/user/bookings", icon: Calendar },
+    { name: "Messages", href: "/user/messages", icon: MessageSquare },
   ];
 
   const providerNavigation = [
-    { name: "Dashboard", href: "/provider", icon: LayoutDashboard },
+    { name: "Dashboard", href: "/provider/dashboard", icon: LayoutDashboard },
     { name: "Bookings", href: "/provider/bookings", icon: CalendarCheck },
     { name: "Availability", href: "/provider/availability", icon: Clock },
     { name: "Revenue", href: "/provider/revenue", icon: Wallet },
@@ -74,7 +91,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="px-4 py-4 border-t border-slate-50 space-y-1">
           <p className="px-4 text-[10px] font-black uppercase tracking-widest text-slate-300 mb-2">Account</p>
           <Link
-            to="/profile"
+            to={user?.role === "provider" ? "/provider/profile" : "/user/profile"}
             className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-900 rounded-xl hover:bg-slate-50 transition-all"
           >
             <User size={20} />
@@ -117,7 +134,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
         <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 shrink-0">
-          <h2 className="text-lg font-black text-slate-900 tracking-tight">Dashboard</h2>
+          <h2 className="text-lg font-black text-slate-900 tracking-tight">{getHeaderTitle()}</h2>
           
           <div className="flex items-center gap-6">
             <div className="relative group hidden md:block">

@@ -9,7 +9,51 @@ import {
 import logo from '../assets/logo.png';
 import { useAuthStore } from '../store/useAuthStore';
 
-type Step = 1 | 2 | 3 | 4;
+import { MapContainer, TileLayer, Marker, Circle, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
+
+const LocationMarker = ({ position, setPosition, setAddress }: any) => {
+  const map = useMapEvents({
+    async click(e) {
+      setPosition(e.latlng);
+      map.flyTo(e.latlng, map.getZoom());
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
+        const data = await res.json();
+        if (data && data.display_name) {
+          setAddress(data.display_name);
+        }
+      } catch (err) {
+        console.error("Reverse geocoding failed", err);
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (position) {
+      map.flyTo(position, 13);
+    }
+  }, [position, map]);
+
+  return position === null ? null : (
+    <Marker position={position}></Marker>
+  );
+};
+// ----------------------
+
+type Step = 1 | 2 | 3 | 4 | 5;
 
 interface Props {
   isOpen: boolean;
@@ -19,19 +63,73 @@ interface Props {
 const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
   const { user, setUser } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>(1);
-  const [progress, setProgress] = useState(25);
+  const [progress, setProgress] = useState(20);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
   
   const [form, setForm] = useState({
+    bio: "",
+    address: "",
     radius: 25,
+    latitude: null as number | null,
+    longitude: null as number | null,
     hourlyRate: "",
     accountHolderName: "",
     bankName: "",
     accountNumber: "",
     routingNumber: ""
   });
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setForm(prev => ({ ...prev, latitude, longitude }));
+
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.display_name) {
+            setForm(prev => ({ ...prev, address: data.display_name }));
+          }
+        } catch (err) {
+          console.error("Failed to reverse geocode coordinate:", err);
+        }
+        setIsLocating(false);
+        toast.success("Location locked!");
+      },
+      () => {
+        setIsLocating(false);
+        toast.error("Failed to get location. Please input address manually.");
+      }
+    );
+  };
+
+  const handleAddressBlur = async () => {
+    if (!form.address || form.address.trim().length < 5) return;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        setForm(prev => ({ ...prev, latitude: lat, longitude: lon }));
+        toast.success("Address coordinates verified!");
+      } else {
+        toast.error("Address not recognized. Please type a valid address.");
+      }
+    } catch (err) {
+      console.error("Geocoding address error:", err);
+    }
+  };
   
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
@@ -39,7 +137,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
   const [licenseDocs, setLicenseDocs] = useState<File[]>([]);
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [selectedService, setSelectedService] = useState<any>(null);
-  const [loadingServices, setLoadingServices] = useState(true);
 
   const profileInputRef = useRef<HTMLInputElement>(null);
   const docsInputRef = useRef<HTMLInputElement>(null);
@@ -60,10 +157,9 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         if (profileRes.data) {
           const profile = profileRes.data;
 
-          // If already submitted or approved, don't show modal
-          if (profile.onboardingStatus !== "pending") {
+          if (profile.onboardingStatus === "approved" || profile.onboardingStatus === "in_review") {
             if (user) {
-              setUser({ ...user, status: profile.onboardingStatus });
+              setUser({ ...user, status: profile.onboardingStatus as any });
             }
             onComplete();
             return;
@@ -71,6 +167,10 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
 
           setForm(prev => ({
             ...prev,
+            bio: profile.bio || "",
+            address: profile.address || "",
+            latitude: profile.location?.coordinates?.[1] || null,
+            longitude: profile.location?.coordinates?.[0] || null,
             radius: profile.serviceRadius || prev.radius,
             hourlyRate: profile.hourlyRate || "",
             accountHolderName: profile.bankDetails?.accountHolderName || "",
@@ -81,13 +181,12 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
           if (profile.profilePhoto) setProfilePreview(profile.profilePhoto);
           if (profile.serviceId) setSelectedService(profile.serviceId);
           setCurrentStep(profile.onboardingStep as Step);
-          setProgress(profile.onboardingStep * 25);
+          setProgress(profile.onboardingStep * 20);
         }
       } catch (error: any) {
         toast.error("Initialization failed");
       } finally {
         setInitialLoading(false);
-        setLoadingServices(false);
       }
     };
     initOnboarding();
@@ -96,17 +195,35 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
   const handleNext = async () => {
     try {
       if (currentStep === 1) {
+        // Step 1: Personal Info
         if (!profilePhoto && !profilePreview) {
           toast.error("Please upload a profile photo");
           return;
         }
         setIsSubmitting(true);
         const formData = new FormData();
-        formData.append("bio", "Professional service provider.");
-        formData.append("serviceRadius", form.radius.toString());
+        formData.append("bio", form.bio || "Professional service provider.");
         if (profilePhoto) formData.append("profilePhoto", profilePhoto);
         await providerApi.updateProfile(formData);
       } else if (currentStep === 2) {
+        // Step 2: Location
+        if (!form.address) {
+          toast.error("Please enter your address");
+          return;
+        }
+        if (form.latitude === null || form.longitude === null) {
+          toast.error("Address location not verified. Please search for a valid address or click 'Use Current Location'.");
+          return;
+        }
+        setIsSubmitting(true);
+        await providerApi.updateLocation({
+          address: form.address,
+          latitude: form.latitude,
+          longitude: form.longitude,
+          serviceRadius: form.radius
+        });
+      } else if (currentStep === 3) {
+        // Step 3: Service Selection
         if (!selectedService) {
           toast.error("Please select a service category");
           return;
@@ -120,7 +237,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
           serviceId: selectedService._id || selectedService,
           hourlyRate: Number(form.hourlyRate)
         });
-      } else if (currentStep === 3) {
+      } else if (currentStep === 4) {
+        // Step 4: Verification Docs
         if (identityDocs.length === 0) {
           toast.error("Identity proof is missing");
           return;
@@ -134,7 +252,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         identityDocs.forEach(file => formData.append("identity", file));
         licenseDocs.forEach(file => formData.append("license", file));
         await providerApi.uploadDocuments(formData);
-      } else if (currentStep === 4) {
+      } else if (currentStep === 5) {
+        // Step 5: Bank Details
         const missing = [];
         if (!form.accountHolderName) missing.push("Account Holder Name");
         if (!form.bankName) missing.push("Bank Name");
@@ -154,18 +273,18 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
           routingNumber: form.routingNumber
         });
 
-        // Update local store so we don't loop
         if (user) {
-          setUser({ ...user, status: "in_review" });
+          setUser({ ...user, status: "in_review" as any });
         }
 
         toast.success("Setup complete! Your profile is now under review.");
         onComplete();
         return;
       }
+      
       const next = (currentStep + 1) as Step;
       setCurrentStep(next);
-      setProgress(next * 25);
+      setProgress(next * 20);
     } catch (error: any) {
       toast.error(error.message || "Action failed");
     } finally {
@@ -175,6 +294,10 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
 
   if (!isOpen || initialLoading) return null;
 
+  const defaultPosition = form.latitude && form.longitude 
+    ? { lat: form.latitude, lng: form.longitude } 
+    : { lat: 51.505, lng: -0.09 }; // Default arbitrary fallback
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 lg:p-10">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500" />
@@ -182,15 +305,16 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
       <div className="relative w-full max-w-[1280px] h-full max-h-[95vh] bg-[#F9FAFB] rounded-[48px] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
         
         {/* --- SIDEBAR STEPPER --- */}
-        <aside className="hidden md:flex w-80 bg-white border-r border-slate-100 flex-col p-10 space-y-12 shrink-0">
+        <aside className="hidden md:flex w-80 bg-white border-r border-slate-100 flex-col p-10 space-y-12 shrink-0 overflow-y-auto">
           <img src={logo} alt="ServiceHub" className="h-8 w-fit object-contain" />
           
           <div className="space-y-8">
             {[
               { step: 1, label: "Personal Info", desc: "Basic details & photo", icon: User },
-              { step: 2, label: "Service Selection", desc: "Categories & rates", icon: Settings },
-              { step: 3, label: "Verification Docs", desc: "ID & licenses", icon: ShieldCheck },
-              { step: 4, label: "Bank Details", desc: "Payout setup", icon: Building2 },
+              { step: 2, label: "Location Setup", desc: "Map & service radius", icon: MapPin },
+              { step: 3, label: "Service Selection", desc: "Categories & rates", icon: Settings },
+              { step: 4, label: "Verification Docs", desc: "ID & licenses", icon: ShieldCheck },
+              { step: 5, label: "Bank Details", desc: "Payout setup", icon: Building2 },
             ].map((item) => (
               <div key={item.step} className="flex gap-4 group">
                 <div className="flex flex-col items-center">
@@ -201,7 +325,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                   }`}>
                     {currentStep > item.step ? <Check size={18} /> : <item.icon size={18} />}
                   </div>
-                  {item.step < 4 && <div className={`w-0.5 h-10 mt-2 ${currentStep > item.step ? "bg-emerald-500" : "bg-slate-100"}`} />}
+                  {item.step < 5 && <div className={`w-0.5 h-10 mt-2 ${currentStep > item.step ? "bg-emerald-500" : "bg-slate-100"}`} />}
                 </div>
                 <div>
                   <p className={`text-sm font-black ${currentStep === item.step ? "text-slate-900" : "text-slate-400"}`}>{item.label}</p>
@@ -211,7 +335,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
             ))}
           </div>
 
-          <div className="mt-auto">
+          <div className="mt-auto pt-8">
              <div className="flex justify-between items-end mb-2">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Setup Progress</p>
                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{progress}%</p>
@@ -226,7 +350,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         <div className="flex-1 flex flex-col min-w-0 bg-slate-50/30 overflow-hidden">
            <header className="h-20 px-10 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-sm sticky top-0 z-10 shrink-0">
               <div className="bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full border border-blue-100">
-                 Step {currentStep} of 4: Setup Required
+                 Step {currentStep} of 5: Setup Required
               </div>
               <div className="flex items-center gap-4 text-xs font-black text-slate-400">
                  <HelpCircle size={16} /> Help Center
@@ -259,16 +383,93 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                 <p className="text-xs font-medium text-slate-400 mt-1 max-w-[200px] leading-relaxed">Upload a clear photo. Customers prefer providers with professional photos.</p>
                              </div>
                           </div>
-                          <div className="space-y-6">
-                             <div className="flex justify-between items-center"><label className="text-xs font-black text-slate-500 uppercase tracking-widest">Service Radius</label><span className="bg-blue-50 text-blue-600 text-[10px] font-black px-3 py-1 rounded-full">{form.radius} km</span></div>
-                             <input type="range" value={form.radius} onChange={e => setForm({...form, radius: parseInt(e.target.value)})} className="w-full h-2 bg-slate-100 rounded-full appearance-none accent-blue-600 cursor-pointer" />
+                          <div className="space-y-2">
+                             <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">About You (Bio)</label>
+                             <textarea 
+                                value={form.bio}
+                                onChange={e => setForm({...form, bio: e.target.value})}
+                                placeholder="Tell customers a little bit about yourself and your experience..."
+                                className="w-full h-32 bg-slate-50/50 border border-slate-100 rounded-2xl p-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all resize-none"
+                             />
                           </div>
                        </div>
                     </div>
                  )}
 
-                 {/* Step 2: Service Selection */}
+                 {/* Step 2: Location Setup */}
                  {currentStep === 2 && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                       <div className="flex justify-between items-end">
+                         <div>
+                            <h2 className="text-3xl font-black text-slate-900">Location Setup</h2>
+                            <p className="text-slate-500 font-medium mt-1">Set your operating base and service range.</p>
+                         </div>
+                       </div>
+
+                       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 space-y-8">
+                          <div className="space-y-2">
+                             <div className="flex justify-between items-center">
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Base Address</label>
+                                <button type="button" onClick={handleUseCurrentLocation} disabled={isLocating} className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                                   {isLocating ? "Locating..." : <><MapPin size={12}/> Use Current Location</>}
+                                </button>
+                             </div>
+                             <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} onBlur={handleAddressBlur} placeholder="Search for your street address..." className="w-full bg-slate-50/50 border border-slate-100 rounded-xl pl-12 pr-4 py-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all" />
+                             </div>
+                             {form.latitude && (
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest px-1">
+                                   ✓ Coordinates Secured: {form.latitude.toFixed(5)}, {form.longitude?.toFixed(5)}
+                                </p>
+                             )}
+                          </div>
+                          
+                          <div className="space-y-6 pt-6 border-t border-slate-100">
+                             <div className="flex justify-between items-center">
+                               <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Service Radius Overlay</label>
+                               <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-3 py-1 rounded-full border border-blue-100">{form.radius} miles</span>
+                             </div>
+                             <input type="range" min="5" max="100" step="5" value={form.radius} onChange={e => setForm({...form, radius: parseInt(e.target.value)})} className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600" />
+                             
+                             <div className="h-[300px] w-full rounded-3xl overflow-hidden border-4 border-slate-50 relative z-0 shadow-inner">
+                               <MapContainer 
+                                  center={defaultPosition as any} 
+                                  zoom={12} 
+                                  scrollWheelZoom={false} 
+                                  style={{ height: '100%', width: '100%' }}
+                               >
+                                  <TileLayer
+                                    attribution='&copy; OpenStreetMap contributors'
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                  />
+                                  <LocationMarker 
+                                    position={form.latitude && form.longitude ? { lat: form.latitude, lng: form.longitude } : null}
+                                    setPosition={(latlng: any) => setForm(prev => ({...prev, latitude: latlng.lat, longitude: latlng.lng}))}
+                                    setAddress={(address: string) => setForm(prev => ({...prev, address}))}
+                                  />
+                                  {form.latitude && form.longitude && (
+                                    <Circle 
+                                      center={[form.latitude, form.longitude]} 
+                                      pathOptions={{ fillColor: '#2563eb', color: '#2563eb', weight: 1, fillOpacity: 0.15 }}
+                                      radius={form.radius * 1609.34} // Convert miles to meters for Leaflet
+                                    />
+                                  )}
+                               </MapContainer>
+                               {(!form.latitude || !form.longitude) && (
+                                 <div className="absolute inset-0 bg-slate-900/5 backdrop-blur-[2px] z-[400] flex items-center justify-center pointer-events-none">
+                                    <span className="bg-white px-4 py-2 rounded-xl text-xs font-black text-slate-400 shadow-sm">Click map to set location</span>
+                                 </div>
+                               )}
+                             </div>
+                             <p className="text-[10px] font-bold text-slate-400 italic text-center">Click anywhere on the map to instantly drop a pin and detect your address.</p>
+                          </div>
+                       </div>
+                    </div>
+                 )}
+
+                 {/* Step 3: Service Selection */}
+                 {currentStep === 3 && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                           <h2 className="text-3xl font-black text-slate-900 tracking-tight">Service Selection</h2>
@@ -303,8 +504,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                     </div>
                  )}
 
-                 {/* Step 3: Documents */}
-                 {currentStep === 3 && (
+                 {/* Step 4: Documents */}
+                 {currentStep === 4 && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                        <div className="grid grid-cols-1 gap-10">
                           {/* Identity Section */}
@@ -381,7 +582,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                     const input = document.createElement('input');
                                     input.type = 'file';
                                     input.multiple = true;
-                                    input.onchange = (e: any) => setLicenseDocs(prev => [...prev, ...Array.from(e.target.files || [])]);
+                                    input.onchange = (e: any) => setLicenseDocs(prev => [...prev, ...Array.from(e.target.files as FileList)]);
                                     input.click();
                                   }}
                                   className="aspect-square rounded-[32px] border-2 border-dashed border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group"
@@ -419,8 +620,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                     </div>
                  )}
 
-                 {/* Step 4: Bank Details */}
-                 {currentStep === 4 && (
+                 {/* Step 5: Bank Details */}
+                 {currentStep === 5 && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                        <div className="flex justify-between items-center">
                           <h2 className="text-3xl font-black text-slate-900">Payout Setup</h2>
@@ -446,7 +647,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                  <div className="mt-12 flex items-center justify-between sticky bottom-0 bg-[#F9FAFB]/80 backdrop-blur-md py-4">
                     <button disabled={currentStep === 1} onClick={() => setCurrentStep(prev => (prev-1) as Step)} className="flex items-center gap-2 px-8 py-4 rounded-2xl border border-slate-100 font-black text-sm text-slate-400 hover:text-slate-900 hover:bg-white transition-all disabled:opacity-0"><ChevronLeft size={20} /> Previous</button>
                     <button onClick={handleNext} disabled={isSubmitting} className="bg-blue-600 text-white px-12 py-5 rounded-[28px] font-black text-sm shadow-2xl shadow-blue-600/30 hover:bg-blue-700 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-70 flex items-center gap-3">
-                       {isSubmitting ? "Processing..." : currentStep === 4 ? "Complete Setup" : "Continue"} <ChevronRight size={20} />
+                       {isSubmitting ? "Processing..." : currentStep === 5 ? "Complete Setup" : "Continue"} <ChevronRight size={20} />
                     </button>
                  </div>
               </div>
