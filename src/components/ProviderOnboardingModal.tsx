@@ -68,6 +68,10 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLocating, setIsLocating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const clearError = (field: string) => setErrors(prev => { const next = { ...prev }; delete next[field]; return next; });
   
   const [form, setForm] = useState({
     bio: "",
@@ -113,8 +117,9 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
     );
   };
 
-  const handleAddressBlur = async () => {
+  const geocodeAddress = async (showLoading = false) => {
     if (!form.address || form.address.trim().length < 5) return;
+    if (showLoading) setIsSearching(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.address)}`);
       const data = await res.json();
@@ -122,14 +127,20 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         const lat = parseFloat(data[0].lat);
         const lon = parseFloat(data[0].lon);
         setForm(prev => ({ ...prev, latitude: lat, longitude: lon }));
+        clearError('location');
         toast.success("Address coordinates verified!");
       } else {
-        toast.error("Address not recognized. Please type a valid address.");
+        setErrors(prev => ({ ...prev, location: "Address not recognized. Please type a valid address or click the map." }));
       }
     } catch (err) {
       console.error("Geocoding address error:", err);
+    } finally {
+      if (showLoading) setIsSearching(false);
     }
   };
+
+  const handleAddressBlur = () => geocodeAddress(false);
+  const handleAddressSearch = () => geocodeAddress(true);
   
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
@@ -197,7 +208,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
       if (currentStep === 1) {
         // Step 1: Personal Info
         if (!profilePhoto && !profilePreview) {
-          toast.error("Please upload a profile photo");
+          setErrors(prev => ({ ...prev, profilePhoto: "Please upload a profile photo." }));
           return;
         }
         setIsSubmitting(true);
@@ -207,12 +218,15 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         await providerApi.updateProfile(formData);
       } else if (currentStep === 2) {
         // Step 2: Location
+        const newErrors: Record<string, string> = {};
         if (!form.address) {
-          toast.error("Please enter your address");
-          return;
+          newErrors.address = "Please enter your address.";
         }
         if (form.latitude === null || form.longitude === null) {
-          toast.error("Address location not verified. Please search for a valid address or click 'Use Current Location'.");
+          newErrors.location = "Location not verified. Search your address or click \"Use Current Location\".";
+        }
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(prev => ({ ...prev, ...newErrors }));
           return;
         }
         setIsSubmitting(true);
@@ -224,12 +238,15 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         });
       } else if (currentStep === 3) {
         // Step 3: Service Selection
+        const newErrors: Record<string, string> = {};
         if (!selectedService) {
-          toast.error("Please select a service category");
-          return;
+          newErrors.service = "Please select a service category.";
         }
         if (!form.hourlyRate || Number(form.hourlyRate) <= 0) {
-          toast.error("Please set a valid hourly rate");
+          newErrors.hourlyRate = "Please set a valid hourly rate.";
+        }
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(prev => ({ ...prev, ...newErrors }));
           return;
         }
         setIsSubmitting(true);
@@ -239,12 +256,15 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         });
       } else if (currentStep === 4) {
         // Step 4: Verification Docs
+        const newErrors: Record<string, string> = {};
         if (identityDocs.length === 0) {
-          toast.error("Identity proof is missing");
-          return;
+          newErrors.identityDocs = "Please upload at least one identity document.";
         }
         if (licenseDocs.length === 0) {
-          toast.error("Professional license/cert is missing");
+          newErrors.licenseDocs = "Please upload at least one professional license or certificate.";
+        }
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(prev => ({ ...prev, ...newErrors }));
           return;
         }
         setIsSubmitting(true);
@@ -254,14 +274,14 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         await providerApi.uploadDocuments(formData);
       } else if (currentStep === 5) {
         // Step 5: Bank Details
-        const missing = [];
-        if (!form.accountHolderName) missing.push("Account Holder Name");
-        if (!form.bankName) missing.push("Bank Name");
-        if (!form.accountNumber) missing.push("Account Number");
-        if (!form.routingNumber) missing.push("IFSC/Routing Code");
+        const newErrors: Record<string, string> = {};
+        if (!form.accountHolderName) newErrors.accountHolderName = "Account holder name is required.";
+        if (!form.bankName) newErrors.bankName = "Bank name is required.";
+        if (!form.accountNumber) newErrors.accountNumber = "Account number is required.";
+        if (!form.routingNumber) newErrors.routingNumber = "IFSC / Routing code is required.";
 
-        if (missing.length > 0) {
-          toast.error(`Missing: ${missing.join(", ")}`);
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(prev => ({ ...prev, ...newErrors }));
           return;
         }
 
@@ -367,20 +387,21 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                        <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 space-y-10">
                           <div className="flex items-center gap-8">
                              <div className="relative">
-                                <div className="w-28 h-28 rounded-[36px] bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-300 overflow-hidden">
+                                <div className={`w-28 h-28 rounded-[36px] bg-slate-50 border-2 border-dashed flex items-center justify-center text-slate-300 overflow-hidden ${errors.profilePhoto ? 'border-red-400' : 'border-slate-200'}`}>
                                    {profilePreview ? <img src={profilePreview} className="w-full h-full object-cover" /> : <Camera size={36} />}
                                 </div>
-                                <button onClick={() => profileInputRef.current?.click()} className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-[14px] border-4 border-white flex items-center justify-center shadow-lg hover:scale-110 transition-all">
+                                <button onClick={() => { profileInputRef.current?.click(); clearError('profilePhoto'); }} className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-[14px] border-4 border-white flex items-center justify-center shadow-lg hover:scale-110 transition-all">
                                    <Upload size={16} />
                                 </button>
                                 <input type="file" ref={profileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                                   const f = e.target.files?.[0];
-                                  if (f) { setProfilePhoto(f); setProfilePreview(URL.createObjectURL(f)); }
+                                  if (f) { setProfilePhoto(f); setProfilePreview(URL.createObjectURL(f)); clearError('profilePhoto'); }
                                 }} />
                              </div>
                              <div>
                                 <h4 className="font-black text-slate-900">Profile Photo</h4>
                                 <p className="text-xs font-medium text-slate-400 mt-1 max-w-[200px] leading-relaxed">Upload a clear photo. Customers prefer providers with professional photos.</p>
+                                {errors.profilePhoto && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.profilePhoto}</p>}
                              </div>
                           </div>
                           <div className="space-y-2">
@@ -414,14 +435,22 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                    {isLocating ? "Locating..." : <><MapPin size={12}/> Use Current Location</>}
                                 </button>
                              </div>
-                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} onBlur={handleAddressBlur} placeholder="Search for your street address..." className="w-full bg-slate-50/50 border border-slate-100 rounded-xl pl-12 pr-4 py-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all" />
+                             <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                   <input type="text" value={form.address} onChange={e => { setForm({ ...form, address: e.target.value }); clearError('address'); }} onBlur={handleAddressBlur} placeholder="Search for your street address..." className={`w-full bg-slate-50/50 border rounded-xl pl-12 pr-4 py-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all ${errors.address ? 'border-red-300' : 'border-slate-100'}`} />
+                                </div>
+                                <button type="button" onClick={handleAddressSearch} disabled={isSearching || !form.address} className="px-5 py-4 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2 shrink-0">
+                                   <Search size={14} /> {isSearching ? "Searching..." : "Search"}
+                                </button>
                              </div>
-                             {form.latitude && (
+                             {errors.address && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.address}</p>}
+                             {form.latitude ? (
                                 <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest px-1">
                                    ✓ Coordinates Secured: {form.latitude.toFixed(5)}, {form.longitude?.toFixed(5)}
                                 </p>
+                             ) : (
+                                errors.location && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.location}</p>
                              )}
                           </div>
                           
@@ -452,7 +481,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                     <Circle 
                                       center={[form.latitude, form.longitude]} 
                                       pathOptions={{ fillColor: '#2563eb', color: '#2563eb', weight: 1, fillOpacity: 0.15 }}
-                                      radius={form.radius * 1609.34} // Convert miles to meters for Leaflet
+                                      radius={form.radius * 1609.34}
                                     />
                                   )}
                                </MapContainer>
@@ -462,7 +491,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                  </div>
                                )}
                              </div>
-                             <p className="text-[10px] font-bold text-slate-400 italic text-center">Click anywhere on the map to instantly drop a pin and detect your address.</p>
                           </div>
                        </div>
                     </div>
@@ -481,7 +509,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                        <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 space-y-10">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              {filteredServices.map(s => (
-                                <div key={s._id} onClick={() => setSelectedService(s)} className={`border-2 rounded-[32px] p-6 flex items-center justify-between cursor-pointer transition-all duration-300 ${selectedService?._id === s._id || selectedService === s._id ? "border-blue-600 bg-blue-50/30 ring-8 ring-blue-600/5" : "border-slate-50 bg-slate-50/50 hover:border-blue-200"}`}>
+                                <div key={s._id} onClick={() => { setSelectedService(s); clearError('service'); }} className={`border-2 rounded-[32px] p-6 flex items-center justify-between cursor-pointer transition-all duration-300 ${selectedService?._id === s._id || selectedService === s._id ? "border-blue-600 bg-blue-50/30 ring-8 ring-blue-600/5" : "border-slate-50 bg-slate-50/50 hover:border-blue-200"}`}>
                                    <div className="flex items-center gap-4">
                                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${selectedService?._id === s._id || selectedService === s._id ? "bg-blue-600 text-white rotate-6" : "bg-white text-slate-400"}`}><Settings size={22} /></div>
                                       <div><p className="font-black text-slate-900">{s.name}</p></div>
@@ -490,14 +518,16 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                 </div>
                              ))}
                           </div>
+                          {errors.service && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.service}</p>}
                           {selectedService && (
                              <div className="pt-10 border-t border-slate-50 space-y-8 animate-in fade-in slide-in-from-top-4">
                                 <div className="flex items-center gap-4"><div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center"><Wallet size={24} /></div><div><h4 className="text-xl font-black text-slate-900">Set Hourly Rate</h4><p className="text-sm font-medium text-slate-400">Specify your charge for {selectedService.name}</p></div></div>
                                 <div className="relative group max-w-md">
                                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-4xl font-black text-slate-200 group-focus-within:text-blue-600 transition-colors">₹</span>
-                                   <input type="number" value={form.hourlyRate} onChange={e => setForm({...form, hourlyRate: e.target.value})} placeholder="0" className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-[32px] pl-14 pr-24 py-8 text-4xl font-black text-slate-900 focus:outline-none focus:border-blue-600 transition-all" />
+                                   <input type="number" value={form.hourlyRate} onChange={e => { setForm({...form, hourlyRate: e.target.value}); clearError('hourlyRate'); }} placeholder="0" className={`w-full bg-slate-50/50 border-2 rounded-[32px] pl-14 pr-24 py-8 text-4xl font-black text-slate-900 focus:outline-none focus:border-blue-600 transition-all ${errors.hourlyRate ? 'border-red-300' : 'border-slate-100'}`} />
                                    <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase tracking-widest">per hour</span>
                                 </div>
+                                {errors.hourlyRate && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.hourlyRate}</p>}
                              </div>
                           )}
                        </div>
@@ -508,7 +538,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                  {currentStep === 4 && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                        <div className="grid grid-cols-1 gap-10">
-                          {/* Identity Section */}
                           <div className="space-y-6">
                              <div className="flex justify-between items-center px-2">
                                 <div className="flex items-center gap-3">
@@ -523,20 +552,17 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                 <span className="bg-slate-100 text-slate-500 text-[10px] font-black px-4 py-1.5 rounded-full border border-slate-200">{identityDocs.length}/5 Files</span>
                              </div>
 
-                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                {/* Upload Button Slot */}
+                             <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 rounded-[32px] ${errors.identityDocs ? 'ring-2 ring-red-300 ring-offset-2' : ''}`}>
                                 <div 
-                                  onClick={() => docsInputRef.current?.click()}
+                                  onClick={() => { docsInputRef.current?.click(); clearError('identityDocs'); }}
                                   className="aspect-square rounded-[32px] border-2 border-dashed border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group"
                                 >
                                    <div className="w-10 h-10 bg-slate-50 text-slate-300 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
                                       <Upload size={20} />
                                    </div>
                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add ID</p>
-                                   <input type="file" ref={docsInputRef} className="hidden" multiple onChange={(e) => setIdentityDocs(prev => [...prev, ...Array.from(e.target.files || [])])} />
+                                   <input type="file" ref={docsInputRef} className="hidden" multiple onChange={(e) => { setIdentityDocs(prev => [...prev, ...Array.from(e.target.files || [])]); clearError('identityDocs'); }} />
                                 </div>
-
-                                {/* Previews */}
                                 {identityDocs.map((f, i) => (
                                    <div key={i} className="group relative aspect-square rounded-[32px] overflow-hidden border border-slate-100 shadow-sm animate-in zoom-in-95">
                                       {f.type.startsWith("image/") ? (
@@ -558,9 +584,9 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                    </div>
                                 ))}
                              </div>
+                             {errors.identityDocs && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.identityDocs}</p>}
                           </div>
 
-                          {/* Professional Section */}
                           <div className="space-y-6">
                              <div className="flex justify-between items-center px-2">
                                 <div className="flex items-center gap-3">
@@ -576,13 +602,12 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                              </div>
 
                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                {/* Upload Button Slot */}
                                 <div 
                                   onClick={() => {
                                     const input = document.createElement('input');
                                     input.type = 'file';
                                     input.multiple = true;
-                                    input.onchange = (e: any) => setLicenseDocs(prev => [...prev, ...Array.from(e.target.files as FileList)]);
+                                    input.onchange = (e: any) => { setLicenseDocs(prev => [...prev, ...Array.from(e.target.files as FileList)]); clearError('licenseDocs'); };
                                     input.click();
                                   }}
                                   className="aspect-square rounded-[32px] border-2 border-dashed border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group"
@@ -592,8 +617,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                    </div>
                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add License</p>
                                 </div>
-
-                                {/* Previews */}
                                 {licenseDocs.map((f, i) => (
                                    <div key={i} className="group relative aspect-square rounded-[32px] overflow-hidden border border-slate-100 shadow-sm animate-in zoom-in-95">
                                       {f.type.startsWith("image/") ? (
@@ -615,6 +638,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                    </div>
                                 ))}
                              </div>
+                             {errors.licenseDocs && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.licenseDocs}</p>}
                           </div>
                        </div>
                     </div>
@@ -636,7 +660,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                           ].map(f => (
                             <div key={f.key} className="space-y-2">
                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{f.label}</label>
-                               <input type="text" value={(form as any)[f.key]} onChange={e => setForm({...form, [f.key]: e.target.value})} placeholder={f.placeholder} className="w-full bg-slate-50/50 border-2 border-slate-50 rounded-[24px] px-6 py-5 text-base font-black focus:outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600 transition-all" />
+                               <input type="text" value={(form as any)[f.key]} onChange={e => { setForm({...form, [f.key]: e.target.value}); clearError(f.key); }} placeholder={f.placeholder} className={`w-full bg-slate-50/50 border-2 rounded-[24px] px-6 py-5 text-base font-black focus:outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600 transition-all ${(errors as any)[f.key] ? 'border-red-300' : 'border-slate-50'}`} />
+                               {(errors as any)[f.key] && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{(errors as any)[f.key]}</p>}
                             </div>
                           ))}
                        </div>

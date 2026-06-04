@@ -6,7 +6,49 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { User, Mail, Phone, Lock, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 import logo from "../../assets/logo.png";
+import {
+  validateName,
+  validateEmail,
+  validatePhone,
+  validatePassword,
+  validateConfirmPassword,
+  getPasswordStrength,
+} from "../../utils/validation";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface FormErrors {
+  name?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  confirmPassword?: string;
+  terms?: string;
+}
+
+// ── Password Strength Bar ─────────────────────────────────────────────────────
+const PasswordStrengthBar: React.FC<{ password: string }> = ({ password }) => {
+  if (!password) return null;
+  const { score, label, color } = getPasswordStrength(password);
+  const bars = [0, 1, 2, 3];
+  return (
+    <div className="mt-1.5 space-y-1">
+      <div className="flex gap-1">
+        {bars.map((i) => (
+          <div
+            key={i}
+            className="h-1 flex-1 rounded-full transition-all duration-300"
+            style={{ backgroundColor: i < score ? color : "#e2e8f0" }}
+          />
+        ))}
+      </div>
+      <p className="text-[10px] font-bold" style={{ color }}>
+        {label}
+      </p>
+    </div>
+  );
+};
+
+// ── Component ─────────────────────────────────────────────────────────────────
 const Signup: React.FC = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -16,17 +58,44 @@ const Signup: React.FC = () => {
     confirmPassword: "",
     role: "user" as "user" | "provider",
   });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [agreeTerms, setAgreeTerms] = useState(false);
   const { signup, googleLogin, loading, error } = useAuth();
 
   const handleGoogleSignup = useGoogleLogin({
     onSuccess: (response) => googleLogin(response.access_token, formData.role),
-    onError: () => console.log("Google Signup Failed"),
+    onError: () => toast.error("Google Sign-Up failed. Please try again."),
+  });
+
+  const validate = (data: typeof formData): FormErrors => ({
+    name: validateName(data.name) ?? undefined,
+    email: validateEmail(data.email) ?? undefined,
+    phone: validatePhone(data.phone) ?? undefined,
+    password: validatePassword(data.password) ?? undefined,
+    confirmPassword:
+      validateConfirmPassword(data.password, data.confirmPassword) ?? undefined,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const updated = { ...formData, [name]: value };
+    setFormData(updated);
+    // Re-validate the changed field (and confirmPassword if password changes)
+    const newErrors = validate(updated);
+    setErrors((prev) => ({
+      ...prev,
+      [name]: touched[name] ? newErrors[name as keyof FormErrors] : prev[name as keyof FormErrors],
+      ...(name === "password" && touched.confirmPassword
+        ? { confirmPassword: newErrors.confirmPassword }
+        : {}),
+    }));
+  };
+
+  const handleBlur = (field: keyof FormErrors) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const newErrors = validate(formData);
+    setErrors((prev) => ({ ...prev, [field]: newErrors[field] }));
   };
 
   const setRole = (role: "user" | "provider") => {
@@ -35,14 +104,24 @@ const Signup: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
+
+    // Mark all fields touched and run full validation
+    const allTouched: Record<string, boolean> = {
+      name: true, email: true, phone: true, password: true, confirmPassword: true,
+    };
+    setTouched(allTouched);
+    const newErrors = validate(formData);
+    setErrors(newErrors);
+
+    const hasErrors = Object.values(newErrors).some(Boolean);
+    if (hasErrors) {
       return;
     }
     if (!agreeTerms) {
-      toast.error("Please agree to the terms and conditions");
+      setErrors(prev => ({ ...prev, terms: "You must agree to the Terms of Service to continue." }));
       return;
     }
+
     await signup(formData);
   };
 
@@ -53,7 +132,9 @@ const Signup: React.FC = () => {
         <div className="w-full h-16 flex items-center justify-center">
           <img src={logo} alt="ServiceHub" className="h-full object-contain" />
         </div>
-        <p className="text-slate-500 text-sm mt-1 font-medium italic">Join our community as a customer or service professional.</p>
+        <p className="text-slate-500 text-sm mt-1 font-medium italic">
+          Join our community as a customer or service professional.
+        </p>
       </div>
 
       <div className="max-w-md w-full card-premium p-10 shadow-xl shadow-slate-200/50">
@@ -62,95 +143,140 @@ const Signup: React.FC = () => {
           <button
             type="button"
             onClick={() => setRole("user")}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${formData.role === 'user'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-              }`}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${
+              formData.role === "user"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
           >
             User
           </button>
           <button
             type="button"
             onClick={() => setRole("provider")}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${formData.role === 'provider'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-              }`}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${
+              formData.role === "provider"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
           >
             Provider
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <Input
-            label="Full Name"
-            name="name"
-            placeholder="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-            icon={<User size={18} />}
-          />
-          <Input
-            label="Email Address"
-            name="email"
-            type="email"
-            placeholder="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            icon={<Mail size={18} />}
-          />
-          <Input
-            label="Phone Number"
-            name="phone"
-            type="tel"
-            placeholder="Mobile"
-            value={formData.phone}
-            onChange={handleChange}
-            icon={<Phone size={18} />}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          {/* Name */}
+          <div>
             <Input
-              label="Password"
-              name="password"
-              type="password"
-              placeholder="Password"
-              value={formData.password}
+              label="Full Name"
+              name="name"
+              placeholder="John Doe"
+              value={formData.name}
               onChange={handleChange}
+              onBlur={() => handleBlur("name")}
               required
-              icon={<Lock size={16} />}
-            />
-            <Input
-              label="Confirm Password"
-              name="confirmPassword"
-              type="password"
-              placeholder="Confirm password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              icon={<Lock size={16} />}
+              icon={<User size={18} />}
+              error={touched.name ? errors.name : undefined}
             />
           </div>
 
+          {/* Email */}
+          <div>
+            <Input
+              label="Email Address"
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              onBlur={() => handleBlur("email")}
+              required
+              icon={<Mail size={18} />}
+              error={touched.email ? errors.email : undefined}
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <Input
+              label="Phone Number"
+              name="phone"
+              type="tel"
+              placeholder="+1 (555) 000-0000"
+              value={formData.phone}
+              onChange={handleChange}
+              onBlur={() => handleBlur("phone")}
+              icon={<Phone size={18} />}
+              error={touched.phone ? errors.phone : undefined}
+            />
+          </div>
+
+          {/* Password + Confirm */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Input
+                label="Password"
+                name="password"
+                type="password"
+                placeholder="Min. 8 chars"
+                value={formData.password}
+                onChange={handleChange}
+                onBlur={() => handleBlur("password")}
+                required
+                icon={<Lock size={16} />}
+                error={touched.password ? errors.password : undefined}
+              />
+              <PasswordStrengthBar password={formData.password} />
+            </div>
+            <div>
+              <Input
+                label="Confirm Password"
+                name="confirmPassword"
+                type="password"
+                placeholder="Repeat password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                onBlur={() => handleBlur("confirmPassword")}
+                required
+                icon={<Lock size={16} />}
+                error={touched.confirmPassword ? errors.confirmPassword : undefined}
+              />
+            </div>
+          </div>
+
+          {/* API Error Banner */}
           {error && (
             <div className="text-[11px] text-red-600 font-bold bg-red-50 border-l-4 border-red-500 p-3 flex gap-2 items-center rounded">
               <span>⚠️ {error}</span>
             </div>
           )}
 
-          <div className="flex items-start gap-2.5 cursor-pointer group py-2">
-            <input
-              type="checkbox"
-              id="terms"
-              checked={agreeTerms}
-              onChange={() => setAgreeTerms(!agreeTerms)}
-              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600/20 transition-all cursor-pointer"
-            />
-            <label htmlFor="terms" className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors cursor-pointer select-none leading-relaxed">
-              By creating an account, you agree to our <Link to="/terms" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>.
-            </label>
+          {/* Terms */}
+          <div className="space-y-1">
+            <div className="flex items-start gap-2.5 cursor-pointer group py-2">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={agreeTerms}
+                onChange={() => { setAgreeTerms(!agreeTerms); setErrors(prev => ({...prev, terms: undefined})); }}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600/20 transition-all cursor-pointer"
+              />
+              <label
+                htmlFor="terms"
+                className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors cursor-pointer select-none leading-relaxed"
+              >
+                By creating an account, you agree to our{" "}
+                <Link to="/terms" className="text-blue-600 hover:underline">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="text-blue-600 hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </label>
+            </div>
+            {errors.terms && <p className="text-red-500 text-xs font-semibold ml-1">{errors.terms}</p>}
           </div>
 
           <Button type="submit" loading={loading}>
@@ -159,7 +285,9 @@ const Signup: React.FC = () => {
           </Button>
 
           <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200"></span></div>
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-200" />
+            </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-extrabold text-slate-400">
               <span className="px-3 bg-white">OR</span>
             </div>
@@ -176,12 +304,17 @@ const Signup: React.FC = () => {
           </Button>
 
           <p className="text-center text-xs font-semibold text-slate-500 pt-2">
-            Already have an account? <Link to="/login" className="text-blue-600 hover:text-blue-700 hover:underline font-bold ml-1 transition-all">Log in</Link>
+            Already have an account?{" "}
+            <Link
+              to="/login"
+              className="text-blue-600 hover:text-blue-700 hover:underline font-bold ml-1 transition-all"
+            >
+              Log in
+            </Link>
           </p>
         </form>
       </div>
 
-      {/* FOOTER LINKS */}
       <div className="mt-8 text-[11px] font-bold text-slate-400">
         © 2024 ServiceHub Inc. All rights reserved.
       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Search as SearchIcon, MapPin, Star, ChevronLeft, ChevronRight,
+  Search as SearchIcon, MapPin, Star,
   Check, HelpCircle, ChevronDown, AlertCircle
 } from "lucide-react";
 import { serviceApi } from "../../api/service.service";
@@ -12,6 +12,7 @@ import L from "leaflet";
 import type { Provider } from "../../types/provider.types";
 import { getSimulated } from "../../types/provider.types";
 import ProviderProfileDetail from "./ProviderProfileDetail";
+import BookingModal from "../../components/user/BookingModal";
 
 const standardIcon = new L.DivIcon({
   className: "",
@@ -91,7 +92,7 @@ const BrowseServices: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>("");
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(1);
+  const [_totalPages, setTotalPages] = useState<number>(1);
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -100,11 +101,21 @@ const BrowseServices: React.FC = () => {
   const [userCoords, setUserCoords] = useState<[number, number] | null>(null);
   const [radius, setRadius] = useState(25);
   const [isLocating, setIsLocating] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<"nearby" | "category" | "rating" | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<"nearby" | "category" | "rating" | "sort" | null>(null);
+
+  // Sorting
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState("desc");
+
+  // Geocoding Search
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationName, setLocationName] = useState("");
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   // UI State
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [profileProvider, setProfileProvider] = useState<Provider | null>(null); // Full page profile
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -130,12 +141,13 @@ const BrowseServices: React.FC = () => {
           ...(nearbyActive && userCoords
             ? { latitude: userCoords[0], longitude: userCoords[1], radius }
             : {}),
+          sortBy,
+          sortOrder,
           limit: ITEMS_PER_PAGE,
           page: currentPage,
         }),
       ]);
       setCategories(catRes.data || []);
-      // Backend returns pagination metadata
       setProviders(provRes.data.providers || []);
       setTotalPages(provRes.data.totalPages || 1);
       setTotalCount(provRes.data.total || 0);
@@ -147,21 +159,77 @@ const BrowseServices: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [search, selectedCategory, nearbyActive, userCoords, radius, currentPage]);
+  useEffect(() => { fetchData(); }, [search, selectedCategory, nearbyActive, userCoords, radius, currentPage, sortBy, sortOrder]);
 
   const toggleNearby = () => {
-    if (nearbyActive) { setNearbyActive(false); setUserCoords(null); setActiveDropdown(null); return; }
+    if (nearbyActive) { 
+      setNearbyActive(false); 
+      setUserCoords(null); 
+      setLocationName("");
+      setLocationSearch("");
+      setActiveDropdown(null); 
+      return; 
+    }
+    if (activeDropdown === "nearby") {
+      setActiveDropdown(null);
+    } else {
+      setActiveDropdown("nearby");
+    }
+  };
+
+  const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      pos => { setUserCoords([pos.coords.latitude, pos.coords.longitude]); setNearbyActive(true); setIsLocating(false); setActiveDropdown("nearby"); toast.success("Location detected!"); },
-      () => { setIsLocating(false); toast.error("Could not get location."); }
+      pos => { 
+        setUserCoords([pos.coords.latitude, pos.coords.longitude]); 
+        setLocationName("My Location");
+        setNearbyActive(true); 
+        setIsLocating(false); 
+        toast.success("Location detected!"); 
+      },
+      () => { 
+        setIsLocating(false); 
+        toast.error("Could not get location. Try searching a city manually."); 
+      }
     );
+  };
+
+  const handleGeocodeSearch = async () => {
+    if (!locationSearch || locationSearch.trim().length < 3) {
+      toast.error("Please type a location to search");
+      return;
+    }
+    setIsGeocoding(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationSearch)}`
+      );
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        setUserCoords([lat, lon]);
+        const shortName = data[0].display_name.split(",")[0];
+        setLocationName(shortName);
+        setNearbyActive(true);
+        toast.success(`Location set to: ${shortName}`);
+      } else {
+        toast.error("Location not recognized.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Geocoding failed. Try again.");
+    } finally {
+      setIsGeocoding(false);
+    }
   };
 
   const clearFilters = () => {
     setSearch(""); setSelectedCategory(""); setSelectedRating("");
-    setNearbyActive(false); setUserCoords(null); setActiveDropdown(null); setCurrentPage(1);
+    setNearbyActive(false); setUserCoords(null); setLocationName(""); setLocationSearch("");
+    setSortBy("createdAt"); setSortOrder("desc");
+    setActiveDropdown(null); setCurrentPage(1);
   };
 
   const filteredProviders = providers.filter(p => {
@@ -174,11 +242,19 @@ const BrowseServices: React.FC = () => {
   // ── PROFILE DETAIL PAGE ──
   if (profileProvider) {
     return (
-      <ProviderProfileDetail
-        provider={profileProvider}
-        userCoords={userCoords}
-        onBack={() => setProfileProvider(null)}
-      />
+      <>
+        <ProviderProfileDetail
+          provider={profileProvider}
+          userCoords={userCoords}
+          onBack={() => setProfileProvider(null)}
+          onBook={() => setIsBookingModalOpen(true)}
+        />
+        <BookingModal
+          isOpen={isBookingModalOpen}
+          onClose={() => setIsBookingModalOpen(false)}
+          provider={profileProvider}
+        />
+      </>
     );
   }
 
@@ -227,18 +303,72 @@ const BrowseServices: React.FC = () => {
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black transition-all border ${nearbyActive ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"}`}
               >
                 <MapPin size={13} />
-                {nearbyActive ? `Within ${radius} km` : "Nearby"}
+                {nearbyActive && locationName ? `Near ${locationName}` : "Nearby"}
                 {isLocating && <div className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin ml-1" />}
                 {!nearbyActive && <ChevronDown size={11} />}
               </button>
-              {nearbyActive && activeDropdown === "nearby" && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-3xl p-5 shadow-xl border border-slate-100 z-50">
-                  <div className="flex justify-between mb-3">
-                    <span className="text-xs font-black text-slate-800">Radius</span>
-                    <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{radius} km</span>
+              {activeDropdown === "nearby" && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-3xl p-5 shadow-xl border border-slate-100 z-50 space-y-4">
+                  {/* Search input for address */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Search Location</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. Mumbai, Delhi"
+                        value={locationSearch}
+                        onChange={(e) => setLocationSearch(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-blue-500"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleGeocodeSearch();
+                        }}
+                      />
+                      <button
+                        onClick={handleGeocodeSearch}
+                        disabled={isGeocoding}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all disabled:opacity-50"
+                      >
+                        {isGeocoding ? "..." : "Set"}
+                      </button>
+                    </div>
                   </div>
-                  <input type="range" min="5" max="100" step="5" value={radius} onChange={e => setRadius(+e.target.value)} className="w-full accent-blue-600" />
-                  <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1"><span>5 km</span><span>100 km</span></div>
+
+                  {/* Divider */}
+                  <div className="border-t border-slate-100" />
+
+                  {/* Use Current GPS Location */}
+                  <button
+                    onClick={handleUseCurrentLocation}
+                    disabled={isLocating}
+                    className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold py-2.5 rounded-xl border border-slate-200 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  >
+                    <MapPin size={14} className="text-blue-500" />
+                    <span>Use GPS Current Location</span>
+                  </button>
+
+                  {/* Divider */}
+                  <div className="border-t border-slate-100" />
+
+                  {/* Radius slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-[10px] font-black uppercase text-slate-400">Radius</span>
+                      <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{radius} km</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="100"
+                      step="5"
+                      value={radius}
+                      onChange={e => setRadius(+e.target.value)}
+                      className="w-full accent-blue-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 font-bold">
+                      <span>5 km</span>
+                      <span>100 km</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -283,6 +413,57 @@ const BrowseServices: React.FC = () => {
                       <Star size={11} className="fill-current" /> {r}+ Stars
                     </button>
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sort */}
+            <div className="relative">
+              <button
+                onClick={() => setActiveDropdown(activeDropdown === "sort" ? null : "sort")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-black transition-all border ${sortBy !== "createdAt" ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"}`}
+              >
+                Sort: {sortBy === "hourlyRate" ? (sortOrder === "asc" ? "Price: Low to High" : "Price: High to Low") : "Newest First"}
+                <ChevronDown size={11} />
+              </button>
+              {activeDropdown === "sort" && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-3xl p-3 shadow-xl border border-slate-100 z-50">
+                  <button
+                    onClick={() => {
+                      setSortBy("createdAt");
+                      setSortOrder("desc");
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-slate-50 ${
+                      sortBy === "createdAt" ? "text-blue-600 bg-blue-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    Newest First
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSortBy("hourlyRate");
+                      setSortOrder("asc");
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-slate-50 ${
+                      sortBy === "hourlyRate" && sortOrder === "asc" ? "text-blue-600 bg-blue-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    Price: Low to High
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSortBy("hourlyRate");
+                      setSortOrder("desc");
+                      setActiveDropdown(null);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-slate-50 ${
+                      sortBy === "hourlyRate" && sortOrder === "desc" ? "text-blue-600 bg-blue-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    Price: High to Low
+                  </button>
                 </div>
               )}
             </div>

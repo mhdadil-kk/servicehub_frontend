@@ -5,76 +5,143 @@ import { Link } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
 import { Mail, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 import logo from "../../assets/logo.png";
+import toast from "react-hot-toast";
+import { validateEmail } from "../../utils/validation";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface FormErrors {
+  email?: string;
+  password?: string;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const { login, googleLogin, loading, error } = useAuth();
+
+  const validate = (): FormErrors => ({
+    email: validateEmail(email) ?? undefined,
+    password: !password ? "Password is required." : undefined,
+  });
+
+  const handleBlur = (field: keyof FormErrors) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const newErrors = validate();
+    setErrors((prev) => ({ ...prev, [field]: newErrors[field] }));
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (touched.email) {
+      setErrors((prev) => ({
+        ...prev,
+        email: validateEmail(e.target.value) ?? undefined,
+      }));
+    }
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    if (touched.password) {
+      setErrors((prev) => ({
+        ...prev,
+        password: !e.target.value ? "Password is required." : undefined,
+      }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched({ email: true, password: true });
+    const newErrors = validate();
+    setErrors(newErrors);
+
+    if (Object.values(newErrors).some(Boolean)) {
+      return;
+    }
     await login(email, password);
   };
 
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: (response) => googleLogin(response.access_token),
-    onError: () => console.log("Google Login Failed"),
+    onError: () => toast.error("Google Login failed. Please try again."),
   });
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-6 font-sans">
-      
       <div className="flex flex-col items-center mb-8 gap-3">
         <div className="w-full h-16 flex items-center justify-center">
           <img src={logo} alt="ServiceHub" className="h-full object-contain" />
         </div>
-        <p className="text-slate-500 text-sm mt-1 font-medium italic">Welcome back, please login to your account.</p>
+        <p className="text-slate-500 text-sm mt-1 font-medium italic">
+          Welcome back, please login to your account.
+        </p>
       </div>
 
       <div className="max-w-md w-full card-premium p-10 shadow-xl shadow-slate-200/50">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="eamil"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="username"
-            icon={<Mail size={18} />}
-          />
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          {/* Email */}
+          <div>
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={handleEmailChange}
+              onBlur={() => handleBlur("email")}
+              required
+              autoComplete="username"
+              icon={<Mail size={18} />}
+              error={touched.email ? errors.email : undefined}
+            />
+          </div>
 
+          {/* Password */}
           <div className="relative">
             <Input
               label="Password"
               type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
+              onBlur={() => handleBlur("password")}
               required
               autoComplete="current-password"
               icon={<Lock size={18} />}
+              error={touched.password ? errors.password : undefined}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600 transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
             <div className="flex justify-end mt-1.5">
-              <Link to="/forgot-password" title="Recovery" className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline transition-all">Forgot password?</Link>
+              <Link
+                to="/forgot-password"
+                title="Recovery"
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline transition-all"
+              >
+                Forgot password?
+              </Link>
             </div>
           </div>
 
+          {/* API Error Banner */}
           {error && (
             <div className="text-[11px] text-red-600 font-bold bg-red-50 border-l-4 border-red-500 p-3 flex gap-2 items-center rounded">
               <span>⚠️ {error}</span>
             </div>
           )}
 
+          {/* Remember me */}
           <div className="flex items-center gap-2.5 cursor-pointer group">
             <input
               type="checkbox"
@@ -83,7 +150,12 @@ const Login: React.FC = () => {
               onChange={() => setRememberMe(!rememberMe)}
               className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600/20 transition-all cursor-pointer"
             />
-            <label htmlFor="remember" className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors cursor-pointer select-none">Remember me</label>
+            <label
+              htmlFor="remember"
+              className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors cursor-pointer select-none"
+            >
+              Remember me
+            </label>
           </div>
 
           <Button type="submit" loading={loading}>
@@ -92,7 +164,9 @@ const Login: React.FC = () => {
           </Button>
 
           <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200"></span></div>
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-200" />
+            </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-extrabold text-slate-400">
               <span className="px-3 bg-white">OR</span>
             </div>
@@ -109,18 +183,30 @@ const Login: React.FC = () => {
           </Button>
 
           <p className="text-center text-xs font-semibold text-slate-500 pt-2">
-            Don't have an account? <Link to="/register" className="text-blue-600 hover:text-blue-700 hover:underline font-bold ml-1 transition-all">Register now</Link>
+            Don't have an account?{" "}
+            <Link
+              to="/register"
+              className="text-blue-600 hover:text-blue-700 hover:underline font-bold ml-1 transition-all"
+            >
+              Register now
+            </Link>
           </p>
         </form>
       </div>
 
       {/* FOOTER LINKS */}
       <div className="mt-12 flex gap-4 text-[11px] font-bold text-slate-400">
-        <Link to="/privacy" className="hover:text-slate-600 transition-colors">Privacy Policy</Link>
+        <Link to="/privacy" className="hover:text-slate-600 transition-colors">
+          Privacy Policy
+        </Link>
         <span>•</span>
-        <Link to="/terms" className="hover:text-slate-600 transition-colors">Terms of Service</Link>
+        <Link to="/terms" className="hover:text-slate-600 transition-colors">
+          Terms of Service
+        </Link>
         <span>•</span>
-        <Link to="/contact" className="hover:text-slate-600 transition-colors">Contact Support</Link>
+        <Link to="/contact" className="hover:text-slate-600 transition-colors">
+          Contact Support
+        </Link>
       </div>
     </div>
   );

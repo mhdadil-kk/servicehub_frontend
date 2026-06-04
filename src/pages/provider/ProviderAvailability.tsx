@@ -1,40 +1,73 @@
-import React, { useEffect, useState } from "react";
-import { Trash2, PlusCircle, Calendar, Plus } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Trash2, PlusCircle, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { providerApi } from "../../api/provider.service";
+import { RRule, Weekday } from "rrule";
 
-type TimeSlot = {
-  id: string;
-  start: string;
-  end: string;
+type TimeSlot = { 
+  id: string; 
+  start: string; 
+  end: string; 
+  startDate?: string; 
+  endDate?: string; 
+  rrule?: string;
 };
-
-type DaySchedule = {
-  isAvailable: boolean;
-  slots: TimeSlot[];
-};
-
+type DaySchedule = { isAvailable: boolean; slots: TimeSlot[] };
 type WeeklySchedule = Record<string, DaySchedule>;
+type DateOverride = { id: string; date: string; isAvailable: boolean; slots: TimeSlot[] };
 
-type DateOverride = {
-  id: string;
-  date: string;
-  isAvailable: boolean;
-  slots: TimeSlot[];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+const DAYS_MAP: Record<string, Weekday> = {
+  Monday: RRule.MO,
+  Tuesday: RRule.TU,
+  Wednesday: RRule.WE,
+  Thursday: RRule.TH,
+  Friday: RRule.FR,
+  Saturday: RRule.SA,
+  Sunday: RRule.SU,
 };
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+const TIME_PATTERN = /^\d{2}:\d{2}$/;
 
-const generateId = () =>
-  Math.random().toString(36).substring(2, 9);
+const generateRRule = (day: string, start: string, end: string, startDate?: string, endDate?: string) => {
+  const weekday = DAYS_MAP[day];
+  if (!weekday) return "";
+
+  // Guard: both start and end must be valid HH:MM strings
+  if (!start || !end || !TIME_PATTERN.test(start) || !TIME_PATTERN.test(end)) return "";
+
+  const [startH, startM] = start.split(":").map(Number);
+  if (isNaN(startH) || isNaN(startM)) return "";
+
+  const startD = startDate ? new Date(startDate) : new Date();
+  startD.setHours(startH, startM, 0, 0);
+
+  // Guard: if setHours produced an invalid date, bail out
+  if (isNaN(startD.getTime())) return "";
+
+  // For 'until': RRule requires a UTC Date — use end-of-day UTC to avoid
+  // "Invalid options: until" errors from local-timezone hour manipulation.
+  let endD: Date | undefined = undefined;
+  if (endDate) {
+    endD = new Date(endDate + "T23:59:59Z");
+    if (isNaN(endD.getTime())) endD = undefined;
+  }
+
+  try {
+    const rule = new RRule({
+      freq: RRule.WEEKLY,
+      byweekday: [weekday],
+      dtstart: startD,
+      until: endD,
+    });
+    return rule.toString();
+  } catch {
+    return "";
+  }
+};
+
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const defaultSchedule: WeeklySchedule = {
   Monday: { isAvailable: false, slots: [] },
@@ -54,6 +87,9 @@ const ProviderAvailability: React.FC = () => {
   const [schedule, setSchedule] =
     useState<WeeklySchedule>(defaultSchedule);
 
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
   const [overrides, setOverrides] = useState<DateOverride[]>(
     []
   );
@@ -61,6 +97,44 @@ const ProviderAvailability: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Sync overall start date to all slot recurrence rules
+  const handleStartDateChange = (newStart: string) => {
+    setStartDate(newStart);
+    setSchedule((prev) => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach((day) => {
+        updated[day] = {
+          ...updated[day],
+          slots: updated[day].slots.map((slot) => {
+            const updatedSlot = { ...slot, startDate: newStart };
+            updatedSlot.rrule = generateRRule(day, updatedSlot.start, updatedSlot.end, newStart, updatedSlot.endDate);
+            return updatedSlot;
+          }),
+        };
+      });
+      return updated;
+    });
+  };
+
+  // Sync overall end date to all slot recurrence rules
+  const handleEndDateChange = (newEnd: string) => {
+    setEndDate(newEnd);
+    setSchedule((prev) => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach((day) => {
+        updated[day] = {
+          ...updated[day],
+          slots: updated[day].slots.map((slot) => {
+            const updatedSlot = { ...slot, endDate: newEnd };
+            updatedSlot.rrule = generateRRule(day, updatedSlot.start, updatedSlot.end, updatedSlot.startDate, newEnd);
+            return updatedSlot;
+          }),
+        };
+      });
+      return updated;
+    });
+  };
 
   useEffect(() => {
     fetchAvailability();
@@ -79,6 +153,17 @@ const ProviderAvailability: React.FC = () => {
     console.log("FULL API RESPONSE:", res.data);
 
     const data = res.data;
+
+    if (data?.startDate) {
+      setStartDate(data.startDate);
+    } else {
+      setStartDate("");
+    }
+    if (data?.endDate) {
+      setEndDate(data.endDate);
+    } else {
+      setEndDate("");
+    }
 
     if (data?.weeklySchedule) {
       const mergedSchedule: WeeklySchedule = {
@@ -116,26 +201,33 @@ const ProviderAvailability: React.FC = () => {
   const toggleDay = (day: string) => {
     setSchedule((prev) => {
       const currentlyAvailable = prev[day].isAvailable;
+      const nextAvailable = !currentlyAvailable;
+      let slots = prev[day].slots;
+
+      if (nextAvailable && slots.length === 0) {
+        const defaultStart = "09:00";
+        const defaultEnd = "17:00";
+        const defaultStartDate = startDate || new Date().toISOString().split('T')[0];
+        const defaultEndDate = endDate || "";
+        const rruleStr = generateRRule(day, defaultStart, defaultEnd, defaultStartDate, defaultEndDate);
+        slots = [
+          {
+            id: generateId(),
+            start: defaultStart,
+            end: defaultEnd,
+            startDate: defaultStartDate,
+            endDate: defaultEndDate,
+            rrule: rruleStr,
+          },
+        ];
+      }
 
       return {
         ...prev,
-
         [day]: {
           ...prev[day],
-
-          isAvailable: !currentlyAvailable,
-
-          slots: currentlyAvailable
-            ? []
-            : prev[day].slots.length > 0
-            ? prev[day].slots
-            : [
-                {
-                  id: generateId(),
-                  start: "09:00",
-                  end: "17:00",
-                },
-              ],
+          isAvailable: nextAvailable,
+          slots: currentlyAvailable ? [] : slots,
         },
       };
     });
@@ -146,21 +238,26 @@ const ProviderAvailability: React.FC = () => {
   // -----------------------------------
 
   const addSlot = (day: string) => {
+    const defaultStart = "09:00";
+    const defaultEnd = "17:00";
+    const defaultStartDate = startDate || new Date().toISOString().split('T')[0];
+    const defaultEndDate = endDate || "";
+    const rruleStr = generateRRule(day, defaultStart, defaultEnd, defaultStartDate, defaultEndDate);
+
     setSchedule((prev) => ({
       ...prev,
-
       [day]: {
         ...prev[day],
-
         isAvailable: true,
-
         slots: [
           ...prev[day].slots,
-
           {
             id: generateId(),
-            start: "09:00",
-            end: "17:00",
+            start: defaultStart,
+            end: defaultEnd,
+            startDate: defaultStartDate,
+            endDate: defaultEndDate,
+            rrule: rruleStr,
           },
         ],
       },
@@ -179,13 +276,9 @@ const ProviderAvailability: React.FC = () => {
 
       return {
         ...prev,
-
         [day]: {
           ...prev[day],
-
           slots: updatedSlots,
-
-          // auto disable
           isAvailable: updatedSlots.length > 0,
         },
       };
@@ -199,27 +292,33 @@ const ProviderAvailability: React.FC = () => {
   const updateSlot = (
     day: string,
     slotId: string,
-    field: "start" | "end",
+    field: "start" | "end" | "startDate" | "endDate",
     value: string
   ) => {
-    setSchedule((prev) => ({
-      ...prev,
-
-      [day]: {
-        ...prev[day],
-
-        isAvailable: true,
-
-        slots: prev[day].slots.map((slot) =>
-          slot.id === slotId
-            ? {
-                ...slot,
-                [field]: value,
-              }
-            : slot
-        ),
-      },
-    }));
+    setSchedule((prev) => {
+      const slots = prev[day].slots.map((slot) => {
+        if (slot.id === slotId) {
+          const updated = { ...slot, [field]: value };
+          // Only regenerate rrule when both time fields are fully valid HH:MM values;
+          // partial values (e.g. "" or "0") during typing must not trigger RRule.
+          const bothTimesValid =
+            TIME_PATTERN.test(updated.start) && TIME_PATTERN.test(updated.end);
+          updated.rrule = bothTimesValid
+            ? generateRRule(day, updated.start, updated.end, updated.startDate, updated.endDate)
+            : slot.rrule;
+          return updated;
+        }
+        return slot;
+      });
+      return {
+        ...prev,
+        [day]: {
+          ...prev[day],
+          isAvailable: true,
+          slots,
+        },
+      };
+    });
   };
 
   // -----------------------------------
@@ -382,7 +481,15 @@ const ProviderAvailability: React.FC = () => {
     try {
       setIsSaving(true);
 
+      if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+        toast.error("Active End Date must be after Start Date.");
+        setIsSaving(false);
+        return;
+      }
+
       await providerApi.updateAvailability({
+        startDate: startDate || null,
+        endDate: endDate || null,
         weeklySchedule: schedule,
         overrides,
       });
@@ -448,6 +555,45 @@ const ProviderAvailability: React.FC = () => {
       {/* WEEKLY */}
       {activeTab === "weekly" && (
         <div className="space-y-4">
+          {/* Active Period Selection */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Schedule Active Period</h2>
+            <p className="text-xs text-slate-500 mb-4">
+              Define the overall date range during which you offer bookings. Leave blank for indefinite availability.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600">Active From (Start Date)</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600">Active To (End Date)</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+            {(startDate || endDate) && (
+              <button
+                onClick={() => {
+                  handleStartDateChange("");
+                  handleEndDateChange("");
+                }}
+                className="mt-4 text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
+              >
+                Clear Active Period (Set to Indefinite)
+              </button>
+            )}
+          </div>
+
           {DAYS.map((day) => {
             const dayData = schedule[day] || {
               isAvailable: false,
@@ -482,45 +628,48 @@ const ProviderAvailability: React.FC = () => {
                         {dayData.slots.map((slot) => (
                           <div
                             key={slot.id}
-                            className="flex items-center gap-3"
+                            className="flex flex-wrap items-center gap-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100"
                           >
-                            <input
-                              type="time"
-                              value={slot.start}
-                              onChange={(e) =>
-                                updateSlot(
-                                  day,
-                                  slot.id,
-                                  "start",
-                                  e.target.value
-                                )
-                              }
-                              className="border rounded-lg px-3 py-2"
-                            />
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="time"
+                                value={slot.start}
+                                onChange={(e) =>
+                                  updateSlot(
+                                    day,
+                                    slot.id,
+                                    "start",
+                                    e.target.value
+                                  )
+                                }
+                                className="border rounded-lg px-2 py-1.5 text-sm"
+                              />
+                              <span className="text-xs text-slate-400">to</span>
+                              <input
+                                type="time"
+                                value={slot.end}
+                                onChange={(e) =>
+                                  updateSlot(
+                                    day,
+                                    slot.id,
+                                    "end",
+                                    e.target.value
+                                  )
+                                }
+                                className="border rounded-lg px-2 py-1.5 text-sm"
+                              />
+                            </div>
 
-                            <span>to</span>
 
-                            <input
-                              type="time"
-                              value={slot.end}
-                              onChange={(e) =>
-                                updateSlot(
-                                  day,
-                                  slot.id,
-                                  "end",
-                                  e.target.value
-                                )
-                              }
-                              className="border rounded-lg px-3 py-2"
-                            />
 
                             <button
                               onClick={() =>
                                 removeSlot(day, slot.id)
                               }
-                              className="text-red-500"
+                              className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                              title="Delete Slot"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         ))}

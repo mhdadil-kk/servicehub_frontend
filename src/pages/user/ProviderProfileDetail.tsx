@@ -1,14 +1,18 @@
-import React from "react";
+import React, { useState } from "react";
 import {
-  MapPin, Star, Check, Phone, Mail, Award, ArrowLeft, ShieldCheck, Briefcase, MessageCircle
+  MapPin, Star, Check, Phone, Mail, Award, ArrowLeft, ShieldCheck, Briefcase, MessageCircle, Loader2
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { Provider } from "../../types/provider.types";
 import { getSimulated } from "../../types/provider.types";
+import { chatApi } from "../../api/chat.service";
+import toast from "react-hot-toast";
 
 interface ProviderProfileDetailProps {
   provider: Provider;
   userCoords: [number, number] | null;
   onBack: () => void;
+  onBook: () => void;
 }
 
 const Stars: React.FC<{ count: number; size?: number }> = ({ count, size = 14 }) => (
@@ -27,8 +31,27 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
   provider,
   userCoords,
   onBack,
+  onBook,
 }) => {
+  const navigate = useNavigate();
   const sim = getSimulated(provider, userCoords);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+
+  const handleChat = async () => {
+    if (isChatLoading) return; // prevent double-click
+    setIsChatLoading(true);
+    try {
+      const res = await chatApi.getOrCreateDirectConversation(provider.userId._id);
+      const conversation = res.data;
+      if (conversation?._id) {
+        navigate(`/user/messages?conversationId=${conversation._id}`);
+      }
+    } catch {
+      toast.error("Could not start a conversation. Please try again.");
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 -m-8">
@@ -124,13 +147,20 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
               <div className="flex gap-4 pt-5 border-t border-slate-100">
                 <button
                   type="button"
-                  className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-black text-xs py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
+                  onClick={handleChat}
+                  disabled={isChatLoading}
+                  className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-black text-xs py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <MessageCircle size={15} />
-                  Chat
+                  {isChatLoading ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <MessageCircle size={15} />
+                  )}
+                  {isChatLoading ? "Opening..." : "Chat"}
                 </button>
                 <button
                   type="button"
+                  onClick={onBook}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs py-3.5 rounded-xl transition-all shadow-md shadow-blue-100 hover:scale-[1.01] flex items-center justify-center gap-2"
                 >
                   Book Now

@@ -4,18 +4,42 @@ import { useAuth } from "../../hooks/useAuth";
 import { Link } from "react-router-dom";
 import { Mail, ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
 import logo from "../../assets/logo.png";
+import toast from "react-hot-toast";
+import { validateEmail } from "../../utils/validation";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | undefined>(undefined);
+  const [touched, setTouched] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const { forgotPassword, loading, error } = useAuth();
 
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (touched) {
+      setEmailError(validateEmail(e.target.value) ?? undefined);
+    }
+  };
+
+  const handleBlur = () => {
+    setTouched(true);
+    setEmailError(validateEmail(email) ?? undefined);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched(true);
+    const err = validateEmail(email);
+    setEmailError(err ?? undefined);
+    if (err) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
     try {
       await forgotPassword(email);
       setIsSent(true);
     } catch {
+      // error from useAuth is displayed below
     }
   };
 
@@ -30,7 +54,11 @@ const ForgotPassword: React.FC = () => {
 
       <div className="max-w-md w-full card-premium p-10 shadow-xl shadow-slate-200/50">
         <div className="flex flex-col items-center mb-8">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isSent ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+          <div
+            className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+              isSent ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
+            }`}
+          >
             {isSent ? <CheckCircle2 size={32} /> : <KeyRound size={32} />}
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight text-center">
@@ -46,28 +74,34 @@ const ForgotPassword: React.FC = () => {
         {isSent ? (
           <div className="space-y-6">
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-[13px] font-semibold text-emerald-700 leading-relaxed text-center">
-              Please check your inbox (and spam folder) for the link to reset your account password.
+              Please check your inbox (and spam folder) for the link to reset your
+              account password.
             </div>
-            <Button onClick={() => setIsSent(false)} variant="primary" className="w-full">
+            <Button onClick={() => { setIsSent(false); setEmail(""); setTouched(false); setEmailError(undefined); }} variant="primary" className="w-full">
               Try another email
             </Button>
             <div className="flex justify-center">
-              <Link to="/login" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors">
+              <Link
+                to="/login"
+                className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
+              >
                 <ArrowLeft size={14} />
                 <span>Back to login</span>
               </Link>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <Input
               label="Email Address"
               type="email"
-              placeholder="email"
+              placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
+              onBlur={handleBlur}
               required
               icon={<Mail size={18} />}
+              error={touched ? emailError : undefined}
             />
 
             {error && (
@@ -81,7 +115,10 @@ const ForgotPassword: React.FC = () => {
             </Button>
 
             <div className="flex justify-center">
-              <Link to="/login" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors">
+              <Link
+                to="/login"
+                className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
+              >
                 <ArrowLeft size={14} />
                 <span>Back to login</span>
               </Link>

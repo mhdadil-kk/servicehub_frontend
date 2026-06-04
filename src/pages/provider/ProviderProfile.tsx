@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { validateFile, FILE_LIMITS } from "../../utils/validation";
 import { providerApi } from "../../api/provider.service";
 import { serviceApi } from "../../api/service.service";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -28,7 +29,6 @@ const ProviderProfile: React.FC = () => {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
-  const [isResetting, setIsResetting] = useState<boolean>(false);
 
   // Active Tab: 'personal', 'service', 'documents', 'bank'
   const [activeTab, setActiveTab] = useState<string>("personal");
@@ -51,6 +51,11 @@ const ProviderProfile: React.FC = () => {
   const [newPhoto, setNewPhoto] = useState<File | null>(null);
   const [identityFiles, setIdentityFiles] = useState<FileList | null>(null);
   const [licenseFiles, setLicenseFiles] = useState<FileList | null>(null);
+
+  // Upload Errors
+  const [photoError, setPhotoError] = useState("");
+  const [identityError, setIdentityError] = useState("");
+  const [licenseError, setLicenseError] = useState("");
 
   // Load profile data and list of active services
   const loadData = async () => {
@@ -113,26 +118,45 @@ const ProviderProfile: React.FC = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const result = validateFile(file, FILE_LIMITS.profilePhoto);
+      if (!result.valid) {
+        setPhotoError(result.error!);
+        e.target.value = "";
+        return;
+      }
+      setPhotoError("");
       setNewPhoto(file);
       setProfilePhotoUrl(URL.createObjectURL(file));
+      toast.success(`Photo ready: ${file.name}`);
     }
   };
 
-  const handleReapply = async () => {
-    try {
-      setIsResetting(true);
-      await providerApi.resetForReapply();
-      toast.success("Application state reset. You can now re-apply.");
-      if (user) {
-        setUser({ ...user, status: "pending" });
-      }
-      loadData();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.response?.data?.message || "Failed to reset application state");
-    } finally {
-      setIsResetting(false);
+  const handleIdentityFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    const invalid = files.filter(f => !validateFile(f, FILE_LIMITS.verificationDoc).valid);
+    if (invalid.length > 0) {
+      setIdentityError(invalid.map(f => validateFile(f, FILE_LIMITS.verificationDoc).error).join(" "));
+      e.target.value = "";
+      return;
     }
+    setIdentityError("");
+    setIdentityFiles(e.target.files);
+    toast.success(`${files.length} identity document(s) ready.`);
+  };
+
+  const handleLicenseFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    const invalid = files.filter(f => !validateFile(f, FILE_LIMITS.verificationDoc).valid);
+    if (invalid.length > 0) {
+      setLicenseError(invalid.map(f => validateFile(f, FILE_LIMITS.verificationDoc).error).join(" "));
+      e.target.value = "";
+      return;
+    }
+    setLicenseError("");
+    setLicenseFiles(e.target.files);
+    toast.success(`${files.length} license document(s) ready.`);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -224,56 +248,6 @@ const ProviderProfile: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-5xl mx-auto pb-16">
-      
-      {/* --- REJECTION CENTRED MODAL WITH BLURRED BACKDROP --- */}
-      {user?.status === 'rejected' && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" />
-          <div className="relative w-full max-w-md bg-white rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
-            <div className="h-2 w-full bg-gradient-to-r from-rose-600 via-rose-500 to-orange-400" />
-            <div className="flex flex-col items-center pt-10 pb-2 px-10">
-              <div className="w-20 h-20 bg-rose-100 rounded-[28px] flex items-center justify-center text-rose-600 shadow-lg shadow-rose-100 mb-6">
-                <AlertTriangle size={36} strokeWidth={2} />
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-2">Application Status</p>
-              <h2 className="text-2xl font-black text-slate-900 text-center tracking-tight">Application Rejected</h2>
-              <p className="text-sm font-medium text-slate-500 text-center mt-2 leading-relaxed">
-                Your provider application was reviewed and could not be approved at this time.
-              </p>
-            </div>
-            <div className="px-10 pb-4 pt-6">
-              {profile?.rejectionReason ? (
-                <div className="bg-rose-50 border border-rose-100 rounded-3xl p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                    <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Reason from Admin</p>
-                  </div>
-                  <p className="text-sm font-semibold text-rose-700 leading-relaxed italic">
-                    "{profile.rejectionReason}"
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 text-center">
-                  <p className="text-xs font-bold text-slate-400">No specific reason was provided by the admin.</p>
-                </div>
-              )}
-            </div>
-            <div className="px-10 pb-10 pt-2 space-y-3">
-              <button
-                onClick={handleReapply}
-                disabled={isResetting}
-                className="w-full bg-rose-600 text-white py-4 rounded-[20px] font-black text-sm shadow-xl shadow-rose-200 hover:bg-rose-700 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <RefreshCw size={16} className={isResetting ? 'animate-spin' : ''} />
-                {isResetting ? "Preparing your application..." : "Review & Re-apply"}
-              </button>
-              <p className="text-center text-[10px] font-bold text-slate-400">
-                You can update your information and resubmit for review.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* --- HERO PROFILE HEADER --- */}
       <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -290,8 +264,11 @@ const ProviderProfile: React.FC = () => {
             </div>
             <label className="absolute bottom-1 right-1 bg-blue-600 hover:bg-blue-700 text-white w-9 h-9 rounded-2xl flex items-center justify-center shadow-lg cursor-pointer border-2 border-white hover:scale-105 transition-all">
               <Camera size={16} />
-              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+              <input type="file" accept=".jpg,.jpeg,.png" className="hidden" onChange={handlePhotoChange} title="JPG or PNG · Max 2 MB" />
             </label>
+            {photoError && (
+              <p className="text-red-500 text-[10px] font-semibold mt-2 text-center max-w-[112px]">{photoError}</p>
+            )}
           </div>
           <div>
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
@@ -534,42 +511,58 @@ const ProviderProfile: React.FC = () => {
 
                   {/* File Upload Selector */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Identity Proof */}
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400">Upload Identity Proof</label>
-                      <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50">
+                      <div className={`border-2 border-dashed rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50 ${
+                        identityFiles && identityFiles.length > 0 ? "border-blue-400" : "border-slate-200"
+                      }`}>
                         <input
                           type="file"
                           multiple
-                          onChange={(e) => setIdentityFiles(e.target.files)}
+                          accept=".jpg,.jpeg,.png,.pdf"
+                          onChange={handleIdentityFilesChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
-                        <FileText size={24} className="text-slate-400 mx-auto mb-2" />
+                        <FileText size={24} className={`mx-auto mb-2 ${identityFiles && identityFiles.length > 0 ? "text-blue-500" : "text-slate-400"}`} />
                         <span className="block text-xs font-bold text-slate-600">
-                          {identityFiles && identityFiles.length > 0 
-                            ? `${identityFiles.length} file(s) selected` 
+                          {identityFiles && identityFiles.length > 0
+                            ? `✓ ${identityFiles.length} file(s) selected`
                             : "Click to browse Identity Proof"}
                         </span>
                         <span className="text-[10px] text-slate-400 mt-1 block">Aadhar Card, Passport, etc.</span>
+                        <span className="text-[10px] text-slate-300 mt-0.5 block">JPG, PNG or PDF · Max 5 MB each</span>
                       </div>
+                      {identityError && (
+                        <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{identityError}</p>
+                      )}
                     </div>
 
+                    {/* Professional License */}
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400">Upload Professional License</label>
-                      <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50">
+                      <div className={`border-2 border-dashed rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50 ${
+                        licenseFiles && licenseFiles.length > 0 ? "border-blue-400" : "border-slate-200"
+                      }`}>
                         <input
                           type="file"
                           multiple
-                          onChange={(e) => setLicenseFiles(e.target.files)}
+                          accept=".jpg,.jpeg,.png,.pdf"
+                          onChange={handleLicenseFilesChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
-                        <FileText size={24} className="text-slate-400 mx-auto mb-2" />
+                        <FileText size={24} className={`mx-auto mb-2 ${licenseFiles && licenseFiles.length > 0 ? "text-blue-500" : "text-slate-400"}`} />
                         <span className="block text-xs font-bold text-slate-600">
-                          {licenseFiles && licenseFiles.length > 0 
-                            ? `${licenseFiles.length} file(s) selected` 
+                          {licenseFiles && licenseFiles.length > 0
+                            ? `✓ ${licenseFiles.length} file(s) selected`
                             : "Click to browse License Proof"}
                         </span>
                         <span className="text-[10px] text-slate-400 mt-1 block">Trade license, degree certificate, etc.</span>
+                        <span className="text-[10px] text-slate-300 mt-0.5 block">JPG, PNG or PDF · Max 5 MB each</span>
                       </div>
+                      {licenseError && (
+                        <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{licenseError}</p>
+                      )}
                     </div>
                   </div>
                 </div>

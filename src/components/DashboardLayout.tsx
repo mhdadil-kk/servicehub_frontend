@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -11,20 +11,63 @@ import {
   Bell,
   Clock,
   Wallet,
-  CalendarCheck
+  CalendarCheck,
+  MapPin,
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import logo from "../assets/logo.png";
+import { providerApi } from "../api/provider.service";
+import ProviderOnboardingModal from "./ProviderOnboardingModal";
+import toast from "react-hot-toast";
 
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, logout } = useAuthStore();
+  const { user, logout, setUser } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [profile, setProfile] = useState<any>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showReapplyModal, setShowReapplyModal] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === "provider") {
+      providerApi.getProfile()
+        .then(res => {
+          if (res.data) {
+            setProfile(res.data);
+            if (user.status !== res.data.onboardingStatus) {
+              setUser({ ...user, status: res.data.onboardingStatus });
+            }
+          }
+        })
+        .catch(err => console.error("Error fetching provider profile in layout:", err));
+    }
+  }, [user?.role, user?.status]);
+
+  const handleReapply = async () => {
+    try {
+      setIsResetting(true);
+      await providerApi.resetForReapply();
+      if (user) {
+        setUser({ ...user, status: "pending" });
+      }
+      setShowReapplyModal(true);
+      toast.success("Application reset. Please fill out onboarding steps again.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to reset application state");
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const getHeaderTitle = () => {
     if (location.pathname === "/user" || location.pathname === "/user/dashboard") return "Dashboard";
     if (location.pathname === "/user/browse") return "Browse Services";
     if (location.pathname === "/user/bookings") return "My Bookings";
+    if (location.pathname === "/user/addresses") return "Address Book";
     if (location.pathname === "/user/messages") return "Messages";
     if (location.pathname === "/user/profile" || location.pathname === "/provider/profile") return "Profile";
     
@@ -47,6 +90,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     { name: "Dashboard", href: "/user/dashboard", icon: LayoutDashboard },
     { name: "Browse Services", href: "/user/browse", icon: Search },
     { name: "My Bookings", href: "/user/bookings", icon: Calendar },
+    { name: "Addresses", href: "/user/addresses", icon: MapPin },
     { name: "Messages", href: "/user/messages", icon: MessageSquare },
   ];
 
@@ -169,6 +213,88 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
           {children}
         </div>
       </main>
+
+      {/* --- PROVIDER VERIFICATION OVERLAYS --- */}
+      {user?.role === "provider" && (
+        <>
+          {/* Onboarding stepper (Pending) */}
+          {(user?.status === "pending" || showReapplyModal) && (
+            <ProviderOnboardingModal
+              isOpen={true}
+              onComplete={() => {
+                setShowReapplyModal(false);
+              }}
+            />
+          )}
+
+          {/* In Review Overlay */}
+          {user?.status === "in_review" && !showReapplyModal && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/50 backdrop-blur-md">
+              <div className="relative w-full max-w-md bg-white rounded-[40px] overflow-hidden shadow-2xl p-10 text-center space-y-6 animate-in zoom-in-95 duration-300">
+                <div className="h-2 w-full bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-400 absolute top-0 left-0 right-0" />
+                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[28px] flex items-center justify-center shadow-lg shadow-blue-100 mx-auto">
+                  <Clock size={36} className="animate-pulse" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-2">Application Status</p>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Application In Review</h2>
+                <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                  Thank you for completing your profile! Our admin team is currently reviewing your verification documents and onboarding details.
+                </p>
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-xs font-semibold text-slate-400">
+                  This process typically takes 24-48 hours. We will approve your account once everything is verified.
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 py-4 rounded-[20px] font-black text-sm transition-all"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Rejected Overlay */}
+          {user?.status === "rejected" && !showReapplyModal && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/50 backdrop-blur-md">
+              <div className="relative w-full max-w-md bg-white rounded-[40px] overflow-hidden shadow-2xl p-10 text-center space-y-6 animate-in zoom-in-95 duration-300">
+                <div className="h-2 w-full bg-gradient-to-r from-rose-600 via-rose-500 to-orange-400 absolute top-0 left-0 right-0" />
+                <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-[28px] flex items-center justify-center shadow-lg shadow-rose-100 mx-auto">
+                  <AlertTriangle size={36} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-rose-400">Application Status</p>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Application Rejected</h2>
+                <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                  Your provider application was reviewed and could not be approved at this time.
+                </p>
+                {profile?.rejectionReason && (
+                  <div className="bg-rose-50 border border-rose-100 rounded-3xl p-4 text-left">
+                    <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Reason from Admin</p>
+                    <p className="text-xs font-semibold text-rose-700 leading-relaxed italic">
+                      "{profile.rejectionReason}"
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <button
+                    onClick={handleReapply}
+                    disabled={isResetting}
+                    className="w-full bg-rose-600 hover:bg-rose-700 text-white py-4 rounded-[20px] font-black text-sm shadow-xl shadow-rose-200 transition-all flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw size={16} className={isResetting ? "animate-spin" : ""} />
+                    {isResetting ? "Preparing..." : "Review & Re-apply"}
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-[20px] font-black text-xs transition-all"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
