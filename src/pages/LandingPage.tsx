@@ -1,9 +1,54 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Star, Home, Droplet, Zap, Truck, Calendar, Coffee, Globe, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import { serviceApi } from '../api/service.service';
+
+const getCategoryIcon = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes('clean')) return Home;
+  if (n.includes('plumb')) return Droplet;
+  if (n.includes('electric')) return Zap;
+  if (n.includes('move')) return Truck;
+  if (n.includes('water')) return Droplet;
+  return Coffee;
+};
+
+const getCategoryColor = (index: number) => {
+  const colors = [
+    "text-blue-500 bg-blue-50",
+    "text-indigo-500 bg-indigo-50",
+    "text-amber-500 bg-amber-50",
+    "text-rose-500 bg-rose-50",
+    "text-emerald-500 bg-emerald-50",
+    "text-purple-500 bg-purple-50",
+  ];
+  return colors[index % colors.length];
+};
 
 const LandingPage: React.FC = () => {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [providers, setProviders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLandingData = async () => {
+      try {
+        const [catRes, provRes] = await Promise.all([
+          serviceApi.getActiveServices(),
+          serviceApi.browseProviders({ limit: 3 })
+        ]);
+        setCategories((catRes as any).data?.slice(0, 8) || []);
+        setProviders((provRes as any).data?.providers || []);
+      } catch (error) {
+        console.error("Error fetching landing page data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLandingData();
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">
       {/* --- NAVBAR --- */}
@@ -17,7 +62,7 @@ const LandingPage: React.FC = () => {
             <div className="hidden md:flex items-center gap-8 text-sm font-bold text-slate-500">
               <a href="#services" className="hover:text-blue-600 transition-colors">Services</a>
               <a href="#how-it-works" className="hover:text-blue-600 transition-colors">How it Works</a>
-              <a href="/register?role=provider" className="hover:text-blue-600 transition-colors">Become a Provider</a>
+              <Link to="/register?role=provider" className="hover:text-blue-600 transition-colors">Become a Provider</Link>
             </div>
 
             <div className="flex items-center gap-4">
@@ -51,11 +96,13 @@ const LandingPage: React.FC = () => {
             </Link>
           </div>
 
-          <div className="mt-6 flex items-center justify-center gap-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs font-bold uppercase tracking-widest text-slate-400">
             <span>Popular:</span>
-            <a href="#" className="text-slate-600 hover:text-blue-600 underline underline-offset-4 decoration-slate-200">Deep Cleaning</a>
-            <a href="#" className="text-slate-600 hover:text-blue-600 underline underline-offset-4 decoration-slate-200">AC Repair</a>
-            <a href="#" className="text-slate-600 hover:text-blue-600 underline underline-offset-4 decoration-slate-200">Pet Grooming</a>
+            {categories.slice(0, 3).map((cat, i) => (
+              <Link key={i} to="/login" className="text-slate-600 hover:text-blue-600 underline underline-offset-4 decoration-slate-200">
+                {cat.name}
+              </Link>
+            ))}
           </div>
         </div>
       </section>
@@ -68,22 +115,33 @@ const LandingPage: React.FC = () => {
             <p className="text-slate-500 font-medium mt-1">Find the right professional for your needs</p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { icon: Home, label: "Home Cleaning", count: "120+ Professionals", color: "text-blue-500 bg-blue-50" },
-              { icon: Droplet, label: "Plumbing", count: "85+ Professionals", color: "text-indigo-500 bg-indigo-50" },
-              { icon: Zap, label: "Electrical", count: "60+ Professionals", color: "text-amber-500 bg-amber-50" },
-              { icon: Truck, label: "Moving", count: "45+ Professionals", color: "text-rose-500 bg-rose-50" },
-            ].map((cat, i) => (
-              <Link to="/login" key={i} className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer text-center block">
-                <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 ${cat.color}`}>
-                  <cat.icon size={28} />
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white p-8 rounded-3xl border border-slate-100 animate-pulse">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl mx-auto mb-6"></div>
+                  <div className="h-4 bg-slate-100 rounded w-3/4 mx-auto mb-2"></div>
+                  <div className="h-3 bg-slate-100 rounded w-1/2 mx-auto"></div>
                 </div>
-                <h3 className="font-black text-slate-900 mb-1">{cat.label}</h3>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{cat.count}</p>
-              </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {categories.map((cat, i) => {
+                const Icon = getCategoryIcon(cat.name);
+                const colorClass = getCategoryColor(i);
+                return (
+                  <Link to="/login" key={cat._id} className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer text-center block">
+                    <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 ${colorClass}`}>
+                      <Icon size={28} />
+                    </div>
+                    <h3 className="font-black text-slate-900 mb-1">{cat.name}</h3>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Book Now</p>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -95,48 +153,59 @@ const LandingPage: React.FC = () => {
               <h2 className="text-3xl font-black text-slate-900">Featured Providers</h2>
               <p className="text-slate-500 font-medium mt-1">Top-rated professionals in your area</p>
             </div>
-            <a href="#" className="text-blue-600 font-black text-sm hover:underline flex items-center gap-1">
+            <Link to="/login" className="text-blue-600 font-black text-sm hover:underline flex items-center gap-1">
               View All Providers <span>&rarr;</span>
-            </a>
+            </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { name: "Alex Johnson", role: "Master Plumber", price: "₹650/hr", rating: "4.9 (124 reviews)", img: "https://images.unsplash.com/photo-1595814433015-e6f5cd696144?auto=format&fit=crop&q=80&w=400" },
-              { name: "Elena Rodriguez", role: "Expert Home Cleaner", price: "₹450/hr", rating: "4.8 (210 reviews)", img: "https://images.unsplash.com/photo-1581578731548-c64695cc6958?auto=format&fit=crop&q=80&w=400" },
-              { name: "Marcus Chen", role: "Licensed Electrician", price: "₹800/hr", rating: "5.0 (95 reviews)", img: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&q=80&w=400" },
-            ].map((p, i) => (
-              <div key={i} className="bg-white rounded-[32px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-2xl transition-all group">
-                <div className="relative h-56 overflow-hidden">
-                  <img src={p.img} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                    <Star size={14} className="text-amber-500 fill-amber-500" />
-                    <span className="text-[11px] font-black text-slate-900">{p.rating}</span>
+          {loading ? (
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+               {[1, 2, 3].map(i => (
+                 <div key={i} className="bg-white rounded-[32px] overflow-hidden border border-slate-100 h-96 animate-pulse">
+                   <div className="h-56 bg-slate-100"></div>
+                   <div className="p-8"><div className="h-4 bg-slate-100 rounded w-1/2 mb-2"></div><div className="h-4 bg-slate-100 rounded w-1/3"></div></div>
+                 </div>
+               ))}
+             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {providers.map((p, i) => (
+                <div key={p._id} className="bg-white rounded-[32px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-2xl transition-all group">
+                  <div className="relative h-56 overflow-hidden bg-slate-100">
+                    <img 
+                      src={p.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${p.userId?.name || 'User'}`} 
+                      alt={p.userId?.name} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                    />
+                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <Star size={14} className="text-amber-500 fill-amber-500" />
+                      <span className="text-[11px] font-black text-slate-900">5.0</span>
+                    </div>
+                  </div>
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-xl font-black text-slate-900">{p.userId?.name || "Provider"}</h3>
+                        <p className="text-sm font-bold text-blue-600">{p.serviceId?.name || "Service"}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden -mt-12 relative z-10 bg-white">
+                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${p.userId?.name || 'P'}`} alt="" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Starts at</p>
+                        <p className="text-2xl font-black text-slate-900">₹{p.hourlyRate || 500}<span className="text-sm text-slate-400">/hr</span></p>
+                      </div>
+                      <Link to="/login" className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-xs hover:bg-blue-600 transition-colors">
+                        View Profile
+                      </Link>
+                    </div>
                   </div>
                 </div>
-                <div className="p-8">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900">{p.name}</h3>
-                      <p className="text-sm font-bold text-blue-600">{p.role}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden -mt-12 relative z-10">
-                      <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${p.name}`} alt="" />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Starts at</p>
-                      <p className="text-2xl font-black text-slate-900">{p.price}</p>
-                    </div>
-                    <Link to="/login" className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-xs hover:bg-blue-600 transition-colors">
-                      View Profile
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -155,12 +224,12 @@ const LandingPage: React.FC = () => {
               { icon: Calendar, title: "2. Book", desc: "Choose a convenient time slot and book instantly with our secure payment system." },
               { icon: Coffee, title: "3. Relax", desc: "Your professional arrives on time and gets the job done right. Satisfaction guaranteed." },
             ].map((step, i) => (
-              <div key={i} className="flex-1 max-w-xs">
-                <div className="w-20 h-20 mx-auto bg-white rounded-3xl flex items-center justify-center text-blue-600 shadow-xl shadow-blue-900/5 mb-8 border border-slate-100">
-                  <step.icon size={32} />
+              <div key={i} className="flex-1 max-w-xs bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                <div className="w-16 h-16 mx-auto bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 transition-transform hover:scale-110">
+                  <step.icon size={28} />
                 </div>
                 <h3 className="text-xl font-black text-slate-900 mb-3">{step.title}</h3>
-                <p className="text-sm font-medium text-slate-50 leading-relaxed text-slate-500">
+                <p className="text-sm font-medium text-slate-500 leading-relaxed">
                   {step.desc}
                 </p>
               </div>
@@ -222,3 +291,4 @@ const LandingPage: React.FC = () => {
 };
 
 export default LandingPage;
+

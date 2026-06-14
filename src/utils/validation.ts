@@ -28,20 +28,29 @@ export function validateFile(
   file: File,
   config: (typeof FILE_LIMITS)[keyof typeof FILE_LIMITS]
 ): FileValidationResult {
-  if (!config.allowedTypes.includes(file.type as any)) {
+  
+  // Strict extension check (since browsers can misreport MIME type)
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  // Convert allowedExtensions (e.g. ".jpg, .jpeg, .png") into an array of raw extensions ["jpg", "jpeg", "png"]
+  const validExts = config.allowedExtensions.split(",").map(e => e.trim().replace(".", "").toLowerCase());
+  
+  // Enforce both extension AND MIME type correctly (prevent empty mime types from passing)
+  if (!validExts.includes(ext) || !config.allowedTypes.includes(file.type as any)) {
     return {
       valid: false,
       error: `Only ${config.allowedExtensions} files are accepted.`,
     };
   }
+
+  // Size limit check
   if (file.size > config.maxSizeBytes) {
     const maxMB = config.maxSizeBytes / (1024 * 1024);
-    const fileMB = (file.size / (1024 * 1024)).toFixed(2);
     return {
       valid: false,
-      error: `${config.label} must be under ${maxMB} MB. Your file is ${fileMB} MB.`,
+      error: `${config.label} must be under ${maxMB} MB.`,
     };
   }
+  
   return { valid: true };
 }
 
@@ -95,6 +104,21 @@ export function validateHourlyRate(value: string | number): string | null {
   if (!value && value !== 0) return "Hourly rate is required.";
   if (isNaN(num) || num <= 0) return "Hourly rate must be a positive number.";
   if (num > 10000) return "Hourly rate seems too high. Please double-check.";
+  return null;
+}
+
+// ── Provider Onboarding Validators ────────────────────────────────────────────
+
+export function validateBio(value: string): string | null {
+  if (!value || !value.trim()) return "Bio is required.";
+  if (value.trim().length < 20) return "Bio should be at least 20 characters long.";
+  if (value.trim().length > 500) return "Bio must be 500 characters or fewer.";
+  return null;
+}
+
+export function validateBankField(value: string, fieldName: string, minLength: number = 3): string | null {
+  if (!value || !value.trim()) return `${fieldName} is required.`;
+  if (value.trim().length < minLength) return `${fieldName} must be at least ${minLength} characters.`;
   return null;
 }
 

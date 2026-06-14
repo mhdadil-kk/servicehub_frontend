@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { bookingApi } from "../../api/booking.service";
 import type { Booking } from "../../api/booking.service";
+import { paymentApi } from "../../api/payment.service";
 import BookingModal from "../../components/user/BookingModal";
 import type { Provider } from "../../types/provider.types";
 const MyBookings: React.FC = () => {
@@ -100,19 +101,37 @@ const MyBookings: React.FC = () => {
     navigate(`/user/messages?bookingId=${bookingId}`);
   };
 
+  const handlePayInvoice = async (bookingId: string) => {
+    try {
+      toast.loading("Initiating payment...");
+      const paymentRes: any = await paymentApi.createCheckoutSession(bookingId);
+      if (paymentRes.url) {
+        window.location.href = paymentRes.url;
+      } else {
+        throw new Error("Missing checkout URL");
+      }
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Failed to initiate payment");
+    }
+  };
+
   const filteredBookings = bookings.filter((b) => {
-    if (activeTab === "upcoming") return ["pending", "confirmed"].includes(b.status);
+    if (activeTab === "upcoming") return ["pending", "awaiting_payment", "confirmed", "in_progress", "completed_pending_payment"].includes(b.status);
     if (activeTab === "past") return ["completed"].includes(b.status);
     return ["cancelled", "rescheduled"].includes(b.status);
   });
 
   // Summary counts
-  const upcomingCount = bookings.filter((b) => ["pending", "confirmed"].includes(b.status)).length;
+  const upcomingCount = bookings.filter((b) => ["pending", "awaiting_payment", "confirmed", "in_progress", "completed_pending_payment"].includes(b.status)).length;
   const completedCount = bookings.filter((b) => b.status === "completed").length;
   const cancelledCount = bookings.filter((b) => ["cancelled", "rescheduled"].includes(b.status)).length;
 
   const statusConfig: Record<string, { label: string; cls: string; dot: string }> = {
+    awaiting_payment: { label: "Awaiting Payment", cls: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500" },
     confirmed: { label: "Confirmed", cls: "bg-blue-50 text-blue-600 border-blue-100", dot: "bg-blue-500" },
+    in_progress: { label: "In Progress", cls: "bg-purple-50 text-purple-600 border-purple-100", dot: "bg-purple-500" },
+    completed_pending_payment: { label: "Pending Payment", cls: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500" },
     completed: { label: "Completed", cls: "bg-emerald-50 text-emerald-600 border-emerald-100", dot: "bg-emerald-500" },
     cancelled: { label: "Cancelled", cls: "bg-rose-50 text-rose-600 border-rose-100", dot: "bg-rose-500" },
     rescheduled: { label: "Rescheduled", cls: "bg-amber-50 text-amber-600 border-amber-100", dot: "bg-amber-500" },
@@ -227,7 +246,7 @@ const MyBookings: React.FC = () => {
               const addressInfo = typeof booking.addressId === "object" ? booking.addressId : null;
               const providerUser = providerInfo?.userId;
               const sc = statusConfig[booking.status] ?? statusConfig["pending"];
-              const canAct = ["pending", "confirmed"].includes(booking.status);
+              const canAct = ["pending", "awaiting_payment", "confirmed"].includes(booking.status);
 
               return (
                 <div
@@ -299,7 +318,7 @@ const MyBookings: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* ── Col 4: Status pill ── */}
+                  {/* ── Col 4: Status pill & OTP ── */}
                   <div>
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap ${sc.cls}`}
@@ -307,6 +326,18 @@ const MyBookings: React.FC = () => {
                       <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
                       {sc.label}
                     </span>
+                    {booking.arrivalOtp && booking.status === "confirmed" && (
+                      <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1.5 flex flex-col w-fit">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-blue-500 mb-0.5">Arrival OTP</span>
+                        <span className="text-base font-black text-blue-700 tracking-[0.2em]">{booking.arrivalOtp}</span>
+                      </div>
+                    )}
+                    {booking.completionOtp && booking.status === "in_progress" && (
+                      <div className="mt-2 bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex flex-col w-fit">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500 mb-0.5">Completion OTP</span>
+                        <span className="text-base font-black text-emerald-700 tracking-[0.2em]">{booking.completionOtp}</span>
+                      </div>
+                    )}
                     {booking.cancellationReason && (
                       <p
                         className="text-[9px] text-rose-400 font-medium mt-1 truncate max-w-[120px]"
@@ -332,6 +363,8 @@ const MyBookings: React.FC = () => {
                       <div className="absolute right-0 top-10 z-50 w-44 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
 
                         {(booking.status === "confirmed" ||
+                          booking.status === "in_progress" ||
+                          booking.status === "completed_pending_payment" ||
                           booking.status === "completed") && (
                             <button
                               onClick={() => {
@@ -369,6 +402,19 @@ const MyBookings: React.FC = () => {
                               Cancel Booking
                             </button>
                           </>
+                        )}
+                        
+                        {booking.status === "completed_pending_payment" && (
+                          <button
+                            onClick={() => {
+                              handlePayInvoice(booking._id);
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold"
+                          >
+                            <CheckCircle2 size={15} />
+                            Pay ₹{booking.totalAmount}
+                          </button>
                         )}
 
                         <button

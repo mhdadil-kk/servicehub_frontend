@@ -8,6 +8,10 @@ import {
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { useAuthStore } from '../store/useAuthStore';
+import { 
+  validateFile, FILE_LIMITS, validateBio, validateBankField, 
+  validateHourlyRate, validateRequired 
+} from '../utils/validation';
 
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -207,13 +211,21 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
     try {
       if (currentStep === 1) {
         // Step 1: Personal Info
+        const newErrors: Record<string, string> = {};
         if (!profilePhoto && !profilePreview) {
-          setErrors(prev => ({ ...prev, profilePhoto: "Please upload a profile photo." }));
+          newErrors.profilePhoto = "Please upload a profile photo.";
+        }
+        const bioErr = validateBio(form.bio);
+        if (bioErr) newErrors.bio = bioErr;
+
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(prev => ({ ...prev, ...newErrors }));
           return;
         }
+
         setIsSubmitting(true);
         const formData = new FormData();
-        formData.append("bio", form.bio || "Professional service provider.");
+        formData.append("bio", form.bio.trim());
         if (profilePhoto) formData.append("profilePhoto", profilePhoto);
         await providerApi.updateProfile(formData);
       } else if (currentStep === 2) {
@@ -242,9 +254,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         if (!selectedService) {
           newErrors.service = "Please select a service category.";
         }
-        if (!form.hourlyRate || Number(form.hourlyRate) <= 0) {
-          newErrors.hourlyRate = "Please set a valid hourly rate.";
-        }
+        const rateErr = validateHourlyRate(form.hourlyRate);
+        if (rateErr) newErrors.hourlyRate = rateErr;
         if (Object.keys(newErrors).length > 0) {
           setErrors(prev => ({ ...prev, ...newErrors }));
           return;
@@ -275,10 +286,17 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
       } else if (currentStep === 5) {
         // Step 5: Bank Details
         const newErrors: Record<string, string> = {};
-        if (!form.accountHolderName) newErrors.accountHolderName = "Account holder name is required.";
-        if (!form.bankName) newErrors.bankName = "Bank name is required.";
-        if (!form.accountNumber) newErrors.accountNumber = "Account number is required.";
-        if (!form.routingNumber) newErrors.routingNumber = "IFSC / Routing code is required.";
+        const ahErr = validateBankField(form.accountHolderName, "Account holder name");
+        if (ahErr) newErrors.accountHolderName = ahErr;
+        
+        const bnErr = validateBankField(form.bankName, "Bank name");
+        if (bnErr) newErrors.bankName = bnErr;
+        
+        const anErr = validateBankField(form.accountNumber, "Account number", 8);
+        if (anErr) newErrors.accountNumber = anErr;
+        
+        const rnErr = validateBankField(form.routingNumber, "IFSC / Routing code", 5);
+        if (rnErr) newErrors.routingNumber = rnErr;
 
         if (Object.keys(newErrors).length > 0) {
           setErrors(prev => ({ ...prev, ...newErrors }));
@@ -393,9 +411,19 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                 <button onClick={() => { profileInputRef.current?.click(); clearError('profilePhoto'); }} className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-[14px] border-4 border-white flex items-center justify-center shadow-lg hover:scale-110 transition-all">
                                    <Upload size={16} />
                                 </button>
-                                <input type="file" ref={profileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                                <input type="file" ref={profileInputRef} className="hidden" accept=".jpg,.jpeg,.png" onChange={(e) => {
                                   const f = e.target.files?.[0];
-                                  if (f) { setProfilePhoto(f); setProfilePreview(URL.createObjectURL(f)); clearError('profilePhoto'); }
+                                  if (f) { 
+                                    const result = validateFile(f, FILE_LIMITS.profilePhoto);
+                                    if (!result.valid) {
+                                      setErrors({...errors, profilePhoto: result.error});
+                                      e.target.value = "";
+                                      return;
+                                    }
+                                    setProfilePhoto(f); 
+                                    setProfilePreview(URL.createObjectURL(f)); 
+                                    clearError('profilePhoto'); 
+                                  }
                                 }} />
                              </div>
                              <div>
@@ -408,10 +436,11 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                              <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">About You (Bio)</label>
                              <textarea 
                                 value={form.bio}
-                                onChange={e => setForm({...form, bio: e.target.value})}
+                                onChange={e => { setForm({...form, bio: e.target.value}); clearError('bio'); }}
                                 placeholder="Tell customers a little bit about yourself and your experience..."
-                                className="w-full h-32 bg-slate-50/50 border border-slate-100 rounded-2xl p-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all resize-none"
+                                className={`w-full h-32 bg-slate-50/50 border rounded-2xl p-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all resize-none ${errors.bio ? 'border-red-400' : 'border-slate-100'}`}
                              />
+                             {errors.bio && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.bio}</p>}
                           </div>
                        </div>
                     </div>
@@ -561,7 +590,17 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                       <Upload size={20} />
                                    </div>
                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add ID</p>
-                                   <input type="file" ref={docsInputRef} className="hidden" multiple onChange={(e) => { setIdentityDocs(prev => [...prev, ...Array.from(e.target.files || [])]); clearError('identityDocs'); }} />
+                                   <input type="file" ref={docsInputRef} className="hidden" multiple accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => { 
+                                      const files = Array.from(e.target.files || []);
+                                      const invalid = files.filter(f => !validateFile(f, FILE_LIMITS.verificationDoc).valid);
+                                      if (invalid.length > 0) {
+                                        setErrors({...errors, identityDocs: invalid.map(f => validateFile(f, FILE_LIMITS.verificationDoc).error).join(" ")});
+                                        e.target.value = "";
+                                        return;
+                                      }
+                                      setIdentityDocs(prev => [...prev, ...files]); 
+                                      clearError('identityDocs'); 
+                                   }} />
                                 </div>
                                 {identityDocs.map((f, i) => (
                                    <div key={i} className="group relative aspect-square rounded-[32px] overflow-hidden border border-slate-100 shadow-sm animate-in zoom-in-95">

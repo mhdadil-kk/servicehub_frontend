@@ -46,6 +46,10 @@ const statusConfig: Record<
     label: "Pending",
     className: "bg-amber-50 text-amber-600 border border-amber-100",
   },
+  awaiting_payment: {
+    label: "Awaiting final confirmation",
+    className: "bg-indigo-50 text-indigo-600 border border-indigo-100",
+  },
   confirmed: {
     label: "Confirmed",
     className: "bg-blue-50 text-blue-600 border border-blue-100",
@@ -118,6 +122,17 @@ const ProviderBookingDetail: React.FC = () => {
   const [reasonError, setReasonError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // OTP States
+  const [showArrivalModal, setShowArrivalModal] = useState(false);
+  const [arrivalOtp, setArrivalOtp] = useState("");
+  
+  // Invoice & Completion States
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceBaseCharge, setInvoiceBaseCharge] = useState("");
+  const [extraCharges, setExtraCharges] = useState<{description: string, amount: string}[]>([]);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionOtp, setCompletionOtp] = useState("");
+
   // ── Fetch ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!bookingId) return;
@@ -134,13 +149,24 @@ const ProviderBookingDetail: React.FC = () => {
     })();
   }, [bookingId]);
 
+  useEffect(() => {
+    if (booking) {
+      const providerInfo: any = typeof booking.providerId === "object" ? booking.providerId : null;
+      if (providerInfo && providerInfo.hourlyRate) {
+        setInvoiceBaseCharge(providerInfo.hourlyRate.toString());
+      } else if (booking.serviceId && typeof booking.serviceId === "object" && (booking.serviceId as any).basePrice) {
+        setInvoiceBaseCharge((booking.serviceId as any).basePrice.toString());
+      }
+    }
+  }, [booking]);
+
   // ── Actions ──────────────────────────────────────────────────────────────
-  const handleConfirm = async () => {
+  const handleAccept = async () => {
     if (!booking) return;
     try {
-      const res = await bookingApi.confirmBooking(booking._id);
+      const res = await bookingApi.acceptBooking(booking._id);
       setBooking(res.data);
-      toast.success("Booking accepted and confirmed!");
+      toast.success("Booking accepted! Waiting for customer to pay fee.");
     } catch {
       toast.error("Failed to accept booking.");
     }
@@ -154,6 +180,73 @@ const ProviderBookingDetail: React.FC = () => {
       toast.success("Booking marked as completed!");
     } catch {
       toast.error("Failed to complete booking.");
+    }
+  };
+
+  // --- OTP Handlers ---
+  const handleGenerateArrivalOtp = async () => {
+    if (!booking) return;
+    try {
+      setIsSubmitting(true);
+      const res = await bookingApi.generateArrivalOtp(booking._id);
+      setBooking(res.data);
+      setShowArrivalModal(true);
+      toast.success("Arrival marked. Customer can see the OTP now.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to mark arrival");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyArrivalOtp = async () => {
+    if (!booking) return;
+    try {
+      setIsSubmitting(true);
+      const res = await bookingApi.verifyArrivalOtp(booking._id, arrivalOtp);
+      setBooking(res.data);
+      setShowArrivalModal(false);
+      setArrivalOtp("");
+      toast.success("Arrival verified. Job is now in progress.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Invalid OTP");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGenerateCompletionOtp = async () => {
+    if (!booking) return;
+    try {
+      setIsSubmitting(true);
+      const res = await bookingApi.generateCompletionOtp(booking._id, {
+        baseCharge: Number(invoiceBaseCharge),
+        extraCharges: extraCharges.map(c => ({ description: c.description, amount: Number(c.amount) }))
+      });
+      setBooking(res.data);
+      setShowInvoiceModal(false);
+      setShowCompletionModal(true);
+      toast.success("Invoice saved. Customer can see the Completion OTP.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to generate OTP");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyCompletionOtp = async () => {
+    if (!booking) return;
+    try {
+      setIsSubmitting(true);
+      const res = await bookingApi.verifyCompletionOtp(booking._id, completionOtp);
+      setBooking(res.data);
+      setShowCompletionModal(false);
+      setCompletionOtp("");
+      toast.success("Job completed successfully! Pending payment.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Invalid OTP");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -228,7 +321,10 @@ const ProviderBookingDetail: React.FC = () => {
   const addressInfo = typeof booking.addressId === "object" ? booking.addressId : null;
 
   const isPending = booking.status === "pending";
+  const isAwaitingPayment = booking.status === "awaiting_payment";
   const isConfirmed = booking.status === "confirmed";
+  const isInProgress = booking.status === "in_progress";
+  const isPendingPayment = booking.status === "completed_pending_payment";
   const isCompleted = booking.status === "completed";
   const isCancelled = booking.status === "cancelled" || booking.status === "rescheduled";
 
@@ -454,7 +550,7 @@ const ProviderBookingDetail: React.FC = () => {
             {isPending && !showReasonBox && (
               <>
                 <button
-                  onClick={handleConfirm}
+                  onClick={handleAccept}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-emerald-100 transition-all hover:scale-[1.02]"
                 >
                   <Check size={15} /> Accept Request
@@ -466,6 +562,18 @@ const ProviderBookingDetail: React.FC = () => {
                   <X size={15} /> Decline
                 </button>
               </>
+            )}
+
+            {/* AWAITING PAYMENT state */}
+            {isAwaitingPayment && (
+              <div className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl p-5 text-center">
+                <p className="text-sm font-bold text-indigo-700 flex items-center justify-center gap-2">
+                  <Clock size={18} /> Awaiting final confirmation
+                </p>
+                <p className="text-xs text-indigo-600/80 font-medium mt-1">
+                  You accepted this request. Waiting for the customer to pay the platform booking fee.
+                </p>
+              </div>
             )}
 
             {/* PENDING + reason box shown */}
@@ -488,15 +596,27 @@ const ProviderBookingDetail: React.FC = () => {
               </>
             )}
 
-            {/* CONFIRMED state */}
+            {/* CONFIRMED state (Job not started yet) */}
             {isConfirmed && !showReasonBox && (
               <>
-                <button
-                  onClick={handleComplete}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-emerald-100 transition-all hover:scale-[1.02]"
-                >
-                  <CheckCircle2 size={15} /> Mark Complete
-                </button>
+                {!booking.arrivalOtp ? (
+                  <button
+                    onClick={handleGenerateArrivalOtp}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-blue-100 transition-all hover:scale-[1.02] disabled:opacity-60"
+                  >
+                    {isSubmitting ? <Loader2 size={15} className="animate-spin" /> : <MapPin size={15} />}
+                    I've Arrived
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowArrivalModal(true)}
+                    className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-amber-100 transition-all hover:scale-[1.02]"
+                  >
+                    <Check size={15} /> Enter Arrival OTP
+                  </button>
+                )}
+                
                 <button
                   onClick={openReasonBox}
                   className="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 transition-all border border-red-100"
@@ -505,13 +625,39 @@ const ProviderBookingDetail: React.FC = () => {
                 </button>
                 <button
                   onClick={handleChat}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-blue-100 transition-all hover:scale-[1.02]"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-sm transition-all hover:scale-[1.02]"
                 >
                   <MessageSquare size={15} /> Chat
                 </button>
               </>
             )}
 
+            {/* IN PROGRESS state (Job started) */}
+            {isInProgress && (
+              <>
+                {!booking.completionOtp ? (
+                  <button
+                    onClick={() => setShowInvoiceModal(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-emerald-100 transition-all hover:scale-[1.02]"
+                  >
+                    <CheckCircle2 size={15} /> Complete Job
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowCompletionModal(true)}
+                    className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-amber-100 transition-all hover:scale-[1.02]"
+                  >
+                    <Check size={15} /> Enter Completion OTP
+                  </button>
+                )}
+                <button
+                  onClick={handleChat}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-sm transition-all hover:scale-[1.02]"
+                >
+                  <MessageSquare size={15} /> Chat
+                </button>
+              </>
+            )}
             {/* CONFIRMED + reason box shown */}
             {isConfirmed && showReasonBox && (
               <>
@@ -532,8 +678,8 @@ const ProviderBookingDetail: React.FC = () => {
               </>
             )}
 
-            {/* COMPLETED state */}
-            {isCompleted && (
+            {/* COMPLETED or PENDING PAYMENT state */}
+            {(isCompleted || isPendingPayment) && (
               <button
                 onClick={handleChat}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-blue-100 transition-all hover:scale-[1.02]"
@@ -541,6 +687,143 @@ const ProviderBookingDetail: React.FC = () => {
                 <MessageSquare size={15} /> Chat with Customer
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* --- MODALS --- */}
+      {showArrivalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-sm shadow-xl space-y-5 animate-in slide-in-from-bottom-4">
+            <h3 className="text-xl font-black text-slate-900">Verify Arrival OTP</h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+              The customer can see the Arrival OTP on their booking page. Enter it here to start the job.
+            </p>
+            <input
+              type="text"
+              placeholder="Enter 4-digit OTP"
+              value={arrivalOtp}
+              onChange={(e) => setArrivalOtp(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-center text-xl font-black tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-600"
+              maxLength={4}
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowArrivalModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold text-sm rounded-xl">Cancel</button>
+              <button onClick={handleVerifyArrivalOtp} disabled={isSubmitting || arrivalOtp.length < 4} className="flex-1 py-3 bg-blue-600 text-white font-bold text-sm rounded-xl disabled:opacity-50">
+                {isSubmitting ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Verify"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCompletionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-sm shadow-xl space-y-5 animate-in slide-in-from-bottom-4">
+            <h3 className="text-xl font-black text-slate-900">Verify Completion OTP</h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+              The customer has been sent the Completion OTP along with the final invoice. Enter it to complete the job.
+            </p>
+            <input
+              type="text"
+              placeholder="Enter 4-digit OTP"
+              value={completionOtp}
+              onChange={(e) => setCompletionOtp(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-center text-xl font-black tracking-widest focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              maxLength={4}
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowCompletionModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold text-sm rounded-xl">Cancel</button>
+              <button onClick={handleVerifyCompletionOtp} disabled={isSubmitting || completionOtp.length < 4} className="flex-1 py-3 bg-emerald-600 text-white font-bold text-sm rounded-xl disabled:opacity-50">
+                {isSubmitting ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Complete Job"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInvoiceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <h3 className="text-xl font-black text-slate-900">Generate Final Invoice</h3>
+              <button onClick={() => setShowInvoiceModal(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Base Labor Charge (₹)</label>
+                <input
+                  type="number"
+                  value={invoiceBaseCharge}
+                  disabled
+                  className="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed font-bold"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Extra Materials / Charges</label>
+                  <button
+                    onClick={() => setExtraCharges([...extraCharges, { description: "", amount: "" }])}
+                    className="text-[10px] font-bold text-blue-600 hover:underline"
+                  >
+                    + Add Item
+                  </button>
+                </div>
+                
+                {extraCharges.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Item description"
+                      value={item.description}
+                      onChange={(e) => {
+                        const newExt = [...extraCharges];
+                        newExt[idx].description = e.target.value;
+                        setExtraCharges(newExt);
+                      }}
+                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                    <input
+                      type="number"
+                      placeholder="₹ Amount"
+                      value={item.amount}
+                      onChange={(e) => {
+                        const newExt = [...extraCharges];
+                        newExt[idx].amount = e.target.value;
+                        setExtraCharges(newExt);
+                      }}
+                      className="w-24 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                    <button
+                      onClick={() => setExtraCharges(extraCharges.filter((_, i) => i !== idx))}
+                      className="text-red-400 hover:text-red-600 px-1"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+                {extraCharges.length === 0 && <p className="text-xs text-slate-400 italic">No extra charges added.</p>}
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-100">
+                <span className="text-sm font-bold text-slate-600">Total Invoice Amount</span>
+                <span className="text-lg font-black text-slate-900">
+                  ₹{(Number(invoiceBaseCharge) || 0) + extraCharges.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)}
+                </span>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleGenerateCompletionOtp} 
+              disabled={isSubmitting || !invoiceBaseCharge} 
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl disabled:opacity-50"
+            >
+              {isSubmitting ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Save Invoice & Generate OTP"}
+            </button>
           </div>
         </div>
       )}

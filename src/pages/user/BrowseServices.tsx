@@ -270,9 +270,6 @@ const BrowseServices: React.FC = () => {
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-xl font-black text-slate-900 tracking-tight">Find a Professional</h3>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                {filteredProviders.length} approved providers available
-              </p>
             </div>
             {(search || selectedCategory || selectedRating || nearbyActive) && (
               <button onClick={clearFilters} className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-2 rounded-xl hover:bg-blue-100 transition-all border border-blue-100">

@@ -21,6 +21,7 @@ import logo from "../assets/logo.png";
 import { providerApi } from "../api/provider.service";
 import ProviderOnboardingModal from "./ProviderOnboardingModal";
 import toast from "react-hot-toast";
+import { NotificationBell } from "./Common/NotificationBell";
 
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout, setUser } = useAuthStore();
@@ -162,7 +163,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="p-4 border-t border-slate-50">
           <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-xl">
              <img 
-               src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name}`} 
+               src={user?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name}`} 
                alt="" 
                className="w-10 h-10 rounded-full border-2 border-white shadow-sm"
              />
@@ -189,10 +190,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 className="bg-slate-50 border-none rounded-xl pl-10 pr-4 py-2 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:bg-white transition-all w-64"
               />
             </div>
-            <button className="relative w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-            </button>
+            <NotificationBell />
             <div className="w-px h-6 bg-slate-100"></div>
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
@@ -200,7 +198,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 <p className="text-[10px] font-bold text-slate-400">{user?.role === 'provider' ? 'Senior Professional' : 'Premium Member'}</p>
               </div>
               <img 
-                src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name}`} 
+                src={user?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name}`} 
                 alt="" 
                 className="w-10 h-10 rounded-xl shadow-sm border border-slate-100"
               />

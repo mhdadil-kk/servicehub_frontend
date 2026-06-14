@@ -84,7 +84,6 @@ const ResetPassword: React.FC = () => {
     setErrors(newErrors);
 
     if (Object.values(newErrors).some(Boolean)) {
-      toast.error("Please fix the highlighted errors.");
       return;
     }
 

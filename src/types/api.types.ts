@@ -17,6 +17,7 @@ export interface IUser {
   email: string;
   phone?: string;
   role: "admin" | "user" | "provider";
+  profilePhoto?: string;
   is_verified: boolean;
   status: "approved" | "rejected" | "pending";
   isDeleted: boolean;

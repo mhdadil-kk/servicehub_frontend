@@ -47,25 +47,17 @@ const ProviderBookings: React.FC = () => {
     }
   };
 
-  const handleConfirm = async (id: string) => {
+  const handleAccept = async (id: string) => {
     try {
-      await bookingApi.confirmBooking(id);
-      toast.success("Booking accepted and confirmed!");
+      await bookingApi.acceptBooking(id);
+      toast.success("Booking accepted! Waiting for customer to pay fee.");
       fetchBookings();
     } catch (error) {
       toast.error("Failed to accept booking.");
     }
   };
 
-  const handleComplete = async (id: string) => {
-    try {
-      await bookingApi.completeBooking(id);
-      toast.success("Booking marked as completed!");
-      fetchBookings();
-    } catch (error) {
-      toast.error("Failed to complete booking.");
-    }
-  };
+
 
   const handleDeclineClick = (id: string) => {
     setActionBookingId(id);
@@ -92,7 +84,7 @@ const ProviderBookings: React.FC = () => {
   };
 
   const filteredBookings = bookings.filter((b) => {
-    if (activeTab === "pending") return b.status === "pending";
+    if (activeTab === "pending") return b.status === "pending" || b.status === "awaiting_payment";
     if (activeTab === "confirmed") return b.status === "confirmed";
     if (activeTab === "completed") return b.status === "completed";
     return b.status === "cancelled" || b.status === "rescheduled";
@@ -110,7 +102,7 @@ const ProviderBookings: React.FC = () => {
       <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
         {(["pending", "confirmed", "completed", "cancelled"] as const).map((tab) => {
           const count = bookings.filter(b => {
-            if (tab === "pending") return b.status === "pending";
+            if (tab === "pending") return b.status === "pending" || b.status === "awaiting_payment";
             if (tab === "confirmed") return b.status === "confirmed";
             if (tab === "completed") return b.status === "completed";
             return b.status === "cancelled" || b.status === "rescheduled";
@@ -264,7 +256,7 @@ const ProviderBookings: React.FC = () => {
                     {booking.status === "pending" && (
                       <>
                         <button
-                          onClick={() => handleConfirm(booking._id)}
+                          onClick={() => handleAccept(booking._id)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-1 shadow-md shadow-emerald-100 transition-all hover:scale-[1.02]"
                         >
                           <Check size={14} />
@@ -280,15 +272,23 @@ const ProviderBookings: React.FC = () => {
                       </>
                     )}
 
+                    {/* Awaiting Payment Badge */}
+                    {booking.status === "awaiting_payment" && (
+                      <div className="bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2">
+                        <Clock size={14} />
+                        <span>Awaiting final confirmation</span>
+                      </div>
+                    )}
+
                     {/* Complete/Cancel triggers for confirmed schedule */}
                     {booking.status === "confirmed" && (
                       <>
                         <button
-                          onClick={() => handleComplete(booking._id)}
+                          onClick={() => navigate(`/provider/bookings/${booking._id}`)}
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-1 shadow-md shadow-emerald-100 transition-all hover:scale-[1.02]"
                         >
                           <CheckCircle2 size={14} />
-                          <span>Mark Completed</span>
+                          <span>View Details & Complete</span>
                         </button>
                         <button
                           onClick={() => handleDeclineClick(booking._id)}

@@ -43,10 +43,17 @@ const VerifyOtp: React.FC = () => {
     }
   };
 
+  const [validationError, setValidationError] = useState("");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpCode = otp.join("");
-    if (email && otpCode.length === 6) {
+    if (otpCode.length < 6) {
+      setValidationError("Please enter the complete 6-digit code.");
+      return;
+    }
+    setValidationError("");
+    if (email) {
       await verifyOtp(email, otpCode);
     }
   };
@@ -91,6 +98,12 @@ const VerifyOtp: React.FC = () => {
               />
             ))}
           </div>
+
+          {validationError && (
+            <div className="text-[11px] text-red-600 font-bold bg-red-50 border-l-4 border-red-500 p-3 flex gap-2 items-center rounded">
+               <span>⚠️ {validationError}</span>
+            </div>
+          )}
 
           {error && (
             <div className="text-[11px] text-red-600 font-bold bg-red-50 border-l-4 border-red-500 p-3 flex gap-2 items-center rounded">

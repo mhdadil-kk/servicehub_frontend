@@ -15,6 +15,7 @@ import { bookingApi } from "../../api/booking.service";
 import type { AvailableSlot } from "../../api/booking.service";
 import { addressApi } from "../../api/address.service";
 import type { Address } from "../../api/address.service";
+import { paymentApi } from "../../api/payment.service";
 import type { Provider } from "../../types/provider.types";
 
 interface BookingModalProps {
@@ -55,6 +56,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
   const [latitude, setLatitude] = useState<number | undefined>(undefined);
   const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
 
   const [notes, setNotes] = useState(initialNotes || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,15 +137,20 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
   const handleQuickAddAddress = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {};
     if (!fullAddress.trim()) {
-      toast.error("Address is required");
-      return;
+      newErrors.fullAddress = "Address is required";
     }
     const finalLabel = addressLabel === "Custom" ? customLabel.trim() : addressLabel;
     if (!finalLabel) {
-      toast.error("Label is required");
+      newErrors.customLabel = "Label is required";
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setAddressErrors(newErrors);
       return;
     }
+    setAddressErrors({});
 
     try {
       setIsGeocoding(true);
@@ -192,19 +199,20 @@ const BookingModal: React.FC<BookingModalProps> = ({
         });
         toast.success("Booking rescheduled successfully!");
       } else {
-        // Create Booking
-        await bookingApi.createBooking({
+        const payload = {
           providerId: provider._id,
           serviceId: provider.serviceId?._id || "",
           addressId: selectedAddressId,
           date: selectedDate,
           slot: { start: selectedSlot.start, end: selectedSlot.end },
           notes
-        });
-        toast.success("Booking request submitted!");
+        };
+        const res = await bookingApi.createBooking(payload);
+        
+        toast.success("Booking request sent! Waiting for provider acceptance.");
+        onSuccess?.();
+        onClose();
       }
-      onClose();
-      if (onSuccess) onSuccess();
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to create booking.");
     } finally {
@@ -234,23 +242,21 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
         {/* Stepper progress */}
         <div className="px-8 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0 text-[10px] font-black uppercase tracking-wider text-slate-400">
-          <span className={step >= 1 ? "text-blue-600" : ""}>1. Date</span>
+          <span className={step >= 1 ? "text-blue-600" : ""}>1. Schedule</span>
           <span className="text-slate-200">/</span>
-          <span className={step >= 2 ? "text-blue-600" : ""}>2. Time Slot</span>
+          <span className={step >= 2 ? "text-blue-600" : ""}>2. Address</span>
           <span className="text-slate-200">/</span>
-          <span className={step >= 3 ? "text-blue-600" : ""}>3. Address</span>
-          <span className="text-slate-200">/</span>
-          <span className={step >= 4 ? "text-blue-600" : ""}>4. Review</span>
+          <span className={step >= 3 ? "text-blue-600" : ""}>3. Review</span>
         </div>
 
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          {/* STEP 1: DATE */}
+          {/* STEP 1: DATE & TIME SLOTS */}
           {step === 1 && (
             <div className="space-y-6">
               <div className="flex flex-col items-center justify-center text-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <CalendarIcon size={32} className="text-blue-600 mb-2" />
-                <h4 className="font-bold text-slate-800 text-sm">Select Date</h4>
+                <h4 className="font-bold text-slate-800 text-sm">Select Date & Time</h4>
                 <p className="text-xs text-slate-400 font-medium">When do you need the service?</p>
               </div>
 
@@ -264,61 +270,52 @@ const BookingModal: React.FC<BookingModalProps> = ({
                   className="w-full border border-slate-200 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 focus:bg-white transition-all font-bold text-slate-700"
                 />
               </div>
-            </div>
-          )}
 
-          {/* STEP 2: TIME SLOTS */}
-          {step === 2 && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4">
-                <CalendarIcon size={18} className="text-blue-600" />
-                <div className="text-xs">
-                  <p className="text-slate-400 font-bold">Selected Date</p>
-                  <p className="font-black text-slate-800">{new Date(selectedDate).toLocaleDateString("en-IN", { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-                </div>
-              </div>
+              {selectedDate && (
+                <div className="space-y-3 pt-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Available Time Slots</label>
 
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Available Time Slots</label>
-
-              {isLoadingSlots ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Loader2 className="animate-spin text-blue-600" size={24} />
-                  <span className="text-xs text-slate-400 font-bold">Loading slots...</span>
-                </div>
-              ) : slots.length === 0 ? (
-                <div className="text-center py-12 bg-red-50/50 rounded-2xl border border-red-50 text-red-500 space-y-2">
-                  <AlertCircle size={24} className="mx-auto" />
-                  <p className="text-xs font-black">No availability slots open</p>
-                  <p className="text-[10px] text-slate-400">The provider has no slots configured on this date.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {slots.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      disabled={s.isBooked}
-                      onClick={() => setSelectedSlot(s)}
-                      className={`py-3.5 px-4 rounded-2xl border text-xs font-bold text-center transition-all flex flex-col justify-center items-center gap-1 ${
-                        s.isBooked
-                          ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
-                          : selectedSlot?.id === s.id
-                          ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100"
-                          : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
-                      }`}
-                    >
-                      <Clock size={14} />
-                      <span>{s.start} - {s.end}</span>
-                      {s.isBooked && <span className="text-[9px] text-red-500 uppercase tracking-wider font-black">Booked</span>}
-                    </button>
-                  ))}
+                  {isLoadingSlots ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-3 border border-slate-100 rounded-2xl">
+                      <Loader2 className="animate-spin text-blue-600" size={24} />
+                      <span className="text-xs text-slate-400 font-bold">Loading slots...</span>
+                    </div>
+                  ) : slots.length === 0 ? (
+                    <div className="text-center py-8 bg-red-50/50 rounded-2xl border border-red-50 text-red-500 space-y-2">
+                      <AlertCircle size={24} className="mx-auto" />
+                      <p className="text-xs font-black">No availability slots open</p>
+                      <p className="text-[10px] text-slate-400">The provider has no slots configured on this date.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {slots.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          disabled={s.isBooked}
+                          onClick={() => setSelectedSlot(s)}
+                          className={`py-3.5 px-4 rounded-2xl border text-xs font-bold text-center transition-all flex flex-col justify-center items-center gap-1 ${
+                            s.isBooked
+                              ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
+                              : selectedSlot?.id === s.id
+                              ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100"
+                              : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                          }`}
+                        >
+                          <Clock size={14} />
+                          <span>{s.start} - {s.end}</span>
+                          {s.isBooked && <span className="text-[9px] text-red-500 uppercase tracking-wider font-black">Booked</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* STEP 3: ADDRESS */}
-          {step === 3 && (
+          {/* STEP 2: ADDRESS */}
+          {step === 2 && (
             <div className="space-y-6 animate-in fade-in duration-200">
               {!showAddAddressForm ? (
                 <>
@@ -413,14 +410,16 @@ const BookingModal: React.FC<BookingModalProps> = ({
                   </div>
 
                   {addressLabel === "Custom" && (
-                    <input
-                      type="text"
-                      placeholder="Label Name (e.g. Parents' House)"
-                      value={customLabel}
-                      onChange={(e) => setCustomLabel(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      required
-                    />
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        placeholder="Label Name (e.g. Parents' House)"
+                        value={customLabel}
+                        onChange={(e) => { setCustomLabel(e.target.value); setAddressErrors(prev => ({...prev, customLabel: ""})); }}
+                        className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-600 ${addressErrors.customLabel ? 'border-red-400' : 'border-slate-200'}`}
+                      />
+                      {addressErrors.customLabel && <p className="text-red-500 text-[10px] font-bold ml-1">{addressErrors.customLabel}</p>}
+                    </div>
                   )}
 
                   <div className="space-y-1">
@@ -429,11 +428,11 @@ const BookingModal: React.FC<BookingModalProps> = ({
                       rows={2}
                       placeholder="Street name, City, ZIP code"
                       value={fullAddress}
-                      onChange={(e) => setFullAddress(e.target.value)}
+                      onChange={(e) => { setFullAddress(e.target.value); setAddressErrors(prev => ({...prev, fullAddress: ""})); }}
                       onBlur={handleResolveCoords}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
-                      required
+                      className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none ${addressErrors.fullAddress ? 'border-red-400' : 'border-slate-200'}`}
                     />
+                    {addressErrors.fullAddress && <p className="text-red-500 text-[10px] font-bold ml-1">{addressErrors.fullAddress}</p>}
                   </div>
 
                   <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-[10px] font-bold text-slate-500">
@@ -464,8 +463,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
             </div>
           )}
 
-          {/* STEP 4: REVIEW & CONFIRM */}
-          {step === 4 && (
+          {/* STEP 3: REVIEW & CONFIRM */}
+          {step === 3 && (
             <div className="space-y-6">
               <div className="bg-slate-50 rounded-[24px] border border-slate-100 p-5 space-y-4">
                 <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">Booking Summary</h4>
@@ -496,6 +495,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     <p className="font-bold text-slate-700 leading-relaxed">{currentAddressObj?.fullAddress}</p>
                   </div>
                 </div>
+
               </div>
 
               {/* Notes */}
@@ -519,7 +519,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (step === 3 && showAddAddressForm) {
+                if (step === 2 && showAddAddressForm) {
                   setShowAddAddressForm(false);
                 } else {
                   setStep(s => s - 1);
@@ -531,13 +531,12 @@ const BookingModal: React.FC<BookingModalProps> = ({
             </button>
           )}
 
-          {step < 4 ? (
+          {step < 3 ? (
             <button
               type="button"
               disabled={
-                (step === 1 && !selectedDate) ||
-                (step === 2 && !selectedSlot) ||
-                (step === 3 && (!selectedAddressId || showAddAddressForm))
+                (step === 1 && (!selectedDate || !selectedSlot)) ||
+                (step === 2 && (!selectedAddressId || showAddAddressForm))
               }
               onClick={() => setStep(s => s + 1)}
               className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-2xl text-xs font-bold transition-all disabled:opacity-40"
@@ -552,7 +551,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
               className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2"
             >
               {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-              <span>{rescheduleBookingId ? "Confirm Reschedule" : "Confirm Booking"}</span>
+              <span>{rescheduleBookingId ? "Confirm Reschedule" : "Confirm Booking Request"}</span>
             </button>
           )}
         </div>

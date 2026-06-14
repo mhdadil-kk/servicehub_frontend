@@ -1,14 +1,30 @@
 import React, { useState } from "react";
 import { Input, Button } from "../../components/Common";
 import { useAuth } from "../../hooks/useAuth";
+import { validateEmail, validatePassword } from "../../utils/validation";
 
 const AdminLogin: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const { login, loading, error } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const errors: Record<string, string> = {};
+    const emailErr = validateEmail(email);
+    if (emailErr) errors.email = emailErr;
+    
+    const passErr = validatePassword(password);
+    if (passErr) errors.password = passErr;
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors({});
     await login(email, password);
   };
 
@@ -20,8 +36,16 @@ const AdminLogin: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Input label="Admin Email" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input label="Admin Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <Input 
+            label="Admin Email" type="email" placeholder="Email" 
+            value={email} onChange={(e) => { setEmail(e.target.value); setValidationErrors(prev => ({...prev, email: ""})); }} 
+            error={validationErrors.email}
+          />
+          <Input 
+            label="Admin Password" type="password" placeholder="••••••••" 
+            value={password} onChange={(e) => { setPassword(e.target.value); setValidationErrors(prev => ({...prev, password: ""})); }} 
+            error={validationErrors.password}
+          />
 
           {error && <div className="text-xs text-red-600 font-bold border-l-2 border-red-600 pl-3 py-1 mb-4 leading-relaxed uppercase tracking-tighter">Access Denied: {error}</div>}
 

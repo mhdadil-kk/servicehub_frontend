@@ -28,7 +28,10 @@ import AddressBook from "./pages/user/AddressBook";
 import MyBookings from "./pages/user/MyBookings";
 import ProviderBookings from "./pages/provider/ProviderBookings";
 import ProviderBookingDetail from "./pages/provider/ProviderBookingDetail";
+import UserBookingDetail from "./pages/user/UserBookingDetail";
 import ChatPage from "./pages/ChatPage";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancel from "./pages/PaymentCancel";
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { isAuthenticated, user } = useAuthStore();
@@ -101,10 +104,13 @@ const App: React.FC = () => {
           <Route path="/provider/profile" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderProfile /></ProtectedRoute>} />
 
           <Route path="/user" element={<Navigate to="/user/dashboard" replace />} />
+          <Route path="/payment-success" element={<ProtectedRoute allowedRoles={["user"]}><PaymentSuccess /></ProtectedRoute>} />
+          <Route path="/payment-cancel" element={<ProtectedRoute allowedRoles={["user"]}><PaymentCancel /></ProtectedRoute>} />
           <Route path="/user/dashboard" element={<ProtectedRoute allowedRoles={["user"]}><UserDashboard /></ProtectedRoute>} />
           <Route path="/user/browse" element={<ProtectedRoute allowedRoles={["user"]}><BrowseServices /></ProtectedRoute>} />
           <Route path="/user/addresses" element={<ProtectedRoute allowedRoles={["user"]}><AddressBook /></ProtectedRoute>} />
           <Route path="/user/bookings" element={<ProtectedRoute allowedRoles={["user"]}><MyBookings /></ProtectedRoute>} />
+          <Route path="/user/bookings/:bookingId" element={<ProtectedRoute allowedRoles={["user"]}><UserBookingDetail /></ProtectedRoute>} />
           <Route path="/user/messages" element={<ProtectedRoute allowedRoles={["user"]}><ChatPage /></ProtectedRoute>} />
           <Route path="/user/profile" element={<ProtectedRoute allowedRoles={["user"]}><UserProfile /></ProtectedRoute>} />
         </Routes>

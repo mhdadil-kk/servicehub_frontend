@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { validateFile, FILE_LIMITS } from '../../utils/validation';
+import { validateFile, FILE_LIMITS, validateBankField, validateHourlyRate } from '../../utils/validation';
 import { useNavigate } from 'react-router-dom';
 import { serviceApi } from '../../api/service.service';
 import { providerApi } from '../../api/provider.service';
@@ -137,18 +137,9 @@ const ProviderOnboarding: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    const validExts = ["jpg", "jpeg", "png"];
-    const validTypes = ["image/jpeg", "image/jpg", "image/png"];
-    
-    if (!validExts.includes(ext) || !validTypes.includes(file.type)) {
+    const result = validateFile(file, FILE_LIMITS.profilePhoto);
+    if (!result.valid) {
       setError("profilePhoto", "Only JPG, JPEG, and PNG images are allowed for profile photos.");
-      e.target.value = "";
-      return;
-    }
-    
-    if (file.size > 2 * 1024 * 1024) {
-      setError("profilePhoto", "Image must be under 2 MB.");
       e.target.value = "";
       return;
     }
@@ -267,8 +258,9 @@ const ProviderOnboarding: React.FC = () => {
       else if (currentStep === 2) {
         // Step 2 validation
         if (!selectedService) newErrors.service = "Please select a service category.";
-        if (!form.hourlyRate) newErrors.hourlyRate = "Hourly rate is required.";
-        else if (Number(form.hourlyRate) <= 0) newErrors.hourlyRate = "Hourly rate must be a positive number.";
+        const rateErr = validateHourlyRate(form.hourlyRate);
+        if (rateErr) newErrors.hourlyRate = rateErr;
+        
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsSubmitting(false); return; }
         await providerApi.updateServiceDetails({
           serviceId: selectedService._id || selectedService,
@@ -285,10 +277,18 @@ const ProviderOnboarding: React.FC = () => {
       }
       else if (currentStep === 4) {
         // Step 4 validation
-        if (!form.accountHolderName.trim()) newErrors.accountHolderName = "Account holder name is required.";
-        if (!form.bankName.trim()) newErrors.bankName = "Bank name is required.";
-        if (!form.accountNumber.trim()) newErrors.accountNumber = "Account number is required.";
-        if (!form.routingNumber.trim()) newErrors.routingNumber = "IFSC / Routing code is required.";
+        const ahErr = validateBankField(form.accountHolderName, "Account holder name");
+        if (ahErr) newErrors.accountHolderName = ahErr;
+        
+        const bnErr = validateBankField(form.bankName, "Bank name");
+        if (bnErr) newErrors.bankName = bnErr;
+        
+        const anErr = validateBankField(form.accountNumber, "Account number", 8);
+        if (anErr) newErrors.accountNumber = anErr;
+        
+        const rnErr = validateBankField(form.routingNumber, "IFSC / Routing code", 5);
+        if (rnErr) newErrors.routingNumber = rnErr;
+
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsSubmitting(false); return; }
         await providerApi.updateBankDetails({
           accountHolderName: form.accountHolderName,

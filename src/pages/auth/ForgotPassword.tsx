@@ -32,7 +32,6 @@ const ForgotPassword: React.FC = () => {
     const err = validateEmail(email);
     setEmailError(err ?? undefined);
     if (err) {
-      toast.error("Please enter a valid email address.");
       return;
     }
     try {

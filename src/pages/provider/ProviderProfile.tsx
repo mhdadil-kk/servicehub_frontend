@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { validateFile, FILE_LIMITS } from "../../utils/validation";
+import { validateFile, FILE_LIMITS, validateBio, validateHourlyRate, validateBankField } from "../../utils/validation";
 import { providerApi } from "../../api/provider.service";
 import { serviceApi } from "../../api/service.service";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -52,7 +52,8 @@ const ProviderProfile: React.FC = () => {
   const [identityFiles, setIdentityFiles] = useState<FileList | null>(null);
   const [licenseFiles, setLicenseFiles] = useState<FileList | null>(null);
 
-  // Upload Errors
+  // Upload Error states
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [photoError, setPhotoError] = useState("");
   const [identityError, setIdentityError] = useState("");
   const [licenseError, setLicenseError] = useState("");
@@ -161,6 +162,34 @@ const ProviderProfile: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validations
+    const newErrors: Record<string, string> = {};
+    const bioErr = validateBio(bio);
+    if (bioErr) newErrors.bio = bioErr;
+    
+    const rateErr = validateHourlyRate(hourlyRate);
+    if (rateErr) newErrors.hourlyRate = rateErr;
+    
+    const ahErr = validateBankField(accountHolderName, "Account holder name");
+    if (ahErr) newErrors.accountHolderName = ahErr;
+    
+    const bnErr = validateBankField(bankName, "Bank name");
+    if (bnErr) newErrors.bankName = bnErr;
+    
+    const anErr = validateBankField(accountNumber, "Account number", 8);
+    if (anErr) newErrors.accountNumber = anErr;
+    
+    const rnErr = validateBankField(routingNumber, "Routing code", 5);
+    if (rnErr) newErrors.routingNumber = rnErr;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fix the validation errors in the form.");
+      return;
+    }
+    
+    setErrors({});
     setSaving(true);
 
     try {
@@ -258,7 +287,7 @@ const ProviderProfile: React.FC = () => {
                 {profilePhotoUrl ? (
                   <img src={profilePhotoUrl} alt={name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-3xl font-black text-slate-400 uppercase">{name?.[0] || 'P'}</span>
+                  <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${name || 'Provider'}`} alt={name} className="w-full h-full object-cover" />
                 )}
               </div>
             </div>
@@ -384,11 +413,12 @@ const ProviderProfile: React.FC = () => {
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">Professional Bio</label>
                       <textarea
                         value={bio}
-                        onChange={(e) => setBio(e.target.value)}
+                        onChange={(e) => { setBio(e.target.value); setErrors(prev => ({...prev, bio: ""})); }}
                         rows={4}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 resize-none"
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 resize-none ${errors.bio ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="Tell clients about your skills, experience, and background..."
                       />
+                      {errors.bio && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.bio}</p>}
                     </div>
                   </div>
                 </div>
@@ -423,12 +453,13 @@ const ProviderProfile: React.FC = () => {
                       <input
                         type="number"
                         value={hourlyRate}
-                        onChange={(e) => setHourlyRate(Number(e.target.value))}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800"
+                        onChange={(e) => { setHourlyRate(Number(e.target.value)); setErrors(prev => ({...prev, hourlyRate: ""})); }}
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.hourlyRate ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="500"
                         min="1"
                         required
                       />
+                      {errors.hourlyRate && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.hourlyRate}</p>}
                     </div>
 
                     <div className="space-y-2 sm:col-span-2">
@@ -578,51 +609,51 @@ const ProviderProfile: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><User size={12} /> Account Holder Name</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Account Holder Name</label>
                       <input
                         type="text"
                         value={accountHolderName}
-                        onChange={(e) => setAccountHolderName(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800"
+                        onChange={(e) => { setAccountHolderName(e.target.value); setErrors(prev => ({...prev, accountHolderName: ""})); }}
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.accountHolderName ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="John Doe"
-                        required
                       />
+                      {errors.accountHolderName && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.accountHolderName}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><CreditCard size={12} /> Bank Name</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Bank Name</label>
                       <input
                         type="text"
                         value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800"
+                        onChange={(e) => { setBankName(e.target.value); setErrors(prev => ({...prev, bankName: ""})); }}
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.bankName ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="HDFC Bank"
-                        required
                       />
+                      {errors.bankName && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.bankName}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><CreditCard size={12} /> Account Number</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Account Number</label>
                       <input
                         type="text"
                         value={accountNumber}
-                        onChange={(e) => setAccountNumber(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800"
+                        onChange={(e) => { setAccountNumber(e.target.value); setErrors(prev => ({...prev, accountNumber: ""})); }}
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.accountNumber ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="5010029384729"
-                        required
                       />
+                      {errors.accountNumber && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.accountNumber}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><CreditCard size={12} /> Routing Number / IFSC</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Routing / IFSC Code</label>
                       <input
                         type="text"
                         value={routingNumber}
-                        onChange={(e) => setRoutingNumber(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800"
+                        onChange={(e) => { setRoutingNumber(e.target.value); setErrors(prev => ({...prev, routingNumber: ""})); }}
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.routingNumber ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="HDFC0001234"
-                        required
                       />
+                      {errors.routingNumber && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.routingNumber}</p>}
                     </div>
                   </div>
                 </div>

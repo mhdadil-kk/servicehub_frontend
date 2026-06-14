@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import { validateRequired } from "../../utils/validation";
 
 interface ServiceCategory {
   _id: string;
@@ -27,6 +28,7 @@ const AdminServices: React.FC = () => {
     name: "",
     description: "",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchServices();
@@ -46,7 +48,21 @@ const AdminServices: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    const nameErr = validateRequired(form.name, "Category Name");
+    if (nameErr) newErrors.name = nameErr;
+    
+    const descErr = validateRequired(form.description, "Description");
+    if (descErr) newErrors.description = descErr;
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    
     try {
+      setErrors({});
       const response = await adminService.addService(form);
       toast.success("Service category added successfully");
       setServices([...(services || []), response.data]);
@@ -155,25 +171,25 @@ const AdminServices: React.FC = () => {
                  <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Category Name</label>
                     <input 
-                      required
                       type="text" 
                       placeholder="e.g. Plumbing, Home Cleaning"
                       value={form.name}
-                      onChange={e => setForm({...form, name: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all" 
+                      onChange={e => { setForm({...form, name: e.target.value}); setErrors(prev => ({...prev, name: ""})); }}
+                      className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all ${errors.name ? 'border-red-400' : 'border-slate-100'}`} 
                     />
+                    {errors.name && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.name}</p>}
                  </div>
 
                  <div className="space-y-2">
                     <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Description</label>
                     <textarea 
-                      required
                       rows={4}
                       placeholder="Briefly describe what this service category covers..."
                       value={form.description}
-                      onChange={e => setForm({...form, description: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all" 
+                      onChange={e => { setForm({...form, description: e.target.value}); setErrors(prev => ({...prev, description: ""})); }}
+                      className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all ${errors.description ? 'border-red-400' : 'border-slate-100'}`} 
                     />
+                    {errors.description && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.description}</p>}
                  </div>
 
                  <div className="pt-4 flex gap-4">

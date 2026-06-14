@@ -18,11 +18,20 @@ export interface Booking {
     start: string;
     end: string;
   };
-  status: "pending" | "confirmed" | "completed" | "cancelled" | "rescheduled";
+  status: "pending" | "awaiting_payment" | "confirmed" | "in_progress" | "completed_pending_payment" | "completed" | "cancelled" | "rescheduled";
   notes?: string;
   cancelledBy?: "user" | "provider";
   cancellationReason?: string;
   rescheduledFrom?: string;
+  totalAmount?: number;
+  paymentStatus?: "pending" | "paid" | "failed";
+  stripeSessionId?: string;
+  arrivalOtp?: string;
+  completionOtp?: string;
+  finalInvoice?: {
+    baseCharge: number;
+    extraCharges: Array<{ description: string; amount: number }>;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -70,9 +79,25 @@ export const bookingApi = {
   }) =>
     axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/reschedule`, data),
 
+  acceptBooking: (id: string) =>
+    axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/accept`),
+
   confirmBooking: (id: string) =>
     axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/confirm`),
 
   completeBooking: (id: string) =>
     axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/complete`),
+
+  // OTP Verification
+  generateArrivalOtp: (id: string) =>
+    axiosInstance.post<unknown, ApiResponse<Booking>>(`/bookings/${id}/otp/arrival/generate`),
+
+  verifyArrivalOtp: (id: string, otp: string) =>
+    axiosInstance.post<unknown, ApiResponse<Booking>>(`/bookings/${id}/otp/arrival/verify`, { otp }),
+
+  generateCompletionOtp: (id: string, invoiceData: { baseCharge: number, extraCharges: any[] }) =>
+    axiosInstance.post<unknown, ApiResponse<Booking>>(`/bookings/${id}/otp/completion/generate`, { invoiceData }),
+
+  verifyCompletionOtp: (id: string, otp: string) =>
+    axiosInstance.post<unknown, ApiResponse<Booking>>(`/bookings/${id}/otp/completion/verify`, { otp }),
 };
