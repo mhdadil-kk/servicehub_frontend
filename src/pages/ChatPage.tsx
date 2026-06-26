@@ -31,7 +31,6 @@ const ChatPage: React.FC = () => {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
-  // Messages State
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState("");
@@ -103,7 +102,6 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  // Global online/offline presence listeners (mount once)
   useEffect(() => {
     const s = getSocket();
     s.connect();
@@ -135,7 +133,6 @@ const ChatPage: React.FC = () => {
     fetchConversations();
   }, []);
 
-  // Update selection if query params change
   useEffect(() => {
     const qBookingId = searchParams.get("bookingId");
     const qConversationId = searchParams.get("conversationId");
@@ -154,7 +151,6 @@ const ChatPage: React.FC = () => {
     }
   }, [searchParams, conversations]);
 
-  // Load chat history and configure sockets when selected conversation changes
   useEffect(() => {
     if (selectedConversation) {
       loadChatHistory(selectedConversation._id);
@@ -172,23 +168,19 @@ const ChatPage: React.FC = () => {
       s.connect();
       s.emit("join_room", selectedConversation._id);
 
-      // Listen for incoming messages
       s.on("message_received", (msg: Message) => {
         if (msg.conversationId === selectedConversation._id) {
           setMessages(prev => {
-            // Avoid duplicate message appending
             if (prev.some(m => m._id === msg._id)) return prev;
             return [...prev, msg];
           });
 
-          // Mark read on backend and socket if received from partner
           if (msg.senderId !== user?.id) {
             s.emit("mark_read", selectedConversation._id);
             chatApi.markAsRead(selectedConversation._id).catch(console.error);
           }
         }
 
-        // Live update conversation previews in the sidebar
         setConversations(prev => {
           const next = prev.map(c => {
             if (c._id === msg.conversationId) {
@@ -206,7 +198,6 @@ const ChatPage: React.FC = () => {
             return c;
           });
 
-          // Resort by newest last message
           return next.sort((a, b) => {
             const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.updatedAt).getTime();
             const timeB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.updatedAt).getTime();
@@ -215,7 +206,6 @@ const ChatPage: React.FC = () => {
         });
       });
 
-      // Listen for read receipts
       s.on("messages_read", (data: { conversationId: string }) => {
         if (data.conversationId === selectedConversation._id) {
           setMessages(prev => prev.map(m => m.senderId === user?.id ? { ...m, read: true, delivered: true } : m));
@@ -223,19 +213,16 @@ const ChatPage: React.FC = () => {
         }
       });
 
-      // Listen for delivery receipts
       s.on("messages_delivered", (data: { conversationId: string }) => {
         if (data.conversationId === selectedConversation._id) {
           setMessages(prev => prev.map(m => m.senderId === user?.id && !m.read ? { ...m, delivered: true } : m));
         }
       });
 
-      // Listen for deleted messages
       s.on("message_deleted", (msg: Message) => {
         if (msg.conversationId === selectedConversation._id) {
           setMessages(prev => prev.map(m => m._id === msg._id ? msg : m));
 
-          // If it was the last message, update conversation preview
           setConversations(prev => prev.map(c => {
             if (c._id === msg.conversationId && c.lastMessage?._id === msg._id) {
               return { ...c, lastMessage: msg };
@@ -256,7 +243,6 @@ const ChatPage: React.FC = () => {
     }
   }, [selectedConversation]);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -382,7 +368,6 @@ const ChatPage: React.FC = () => {
             conversations.map((c) => {
               const isActive = selectedConversation?._id === c._id;
               const name = getPartnerName(c);
-              // Show 'Customer' if current user is provider, else show the provider's service category
               const service = user?.role === "provider"
                 ? "Customer"
                 : c.providerServiceName || "Service Provider";
@@ -406,7 +391,6 @@ const ChatPage: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    {/* Online / offline indicator dot */}
                     {(() => {
                       const partner = c.participants.find((p: any) => p._id !== user?.id);
                       const isOnline = partner && onlineUsers.has(partner._id);
@@ -464,6 +448,9 @@ const ChatPage: React.FC = () => {
                           className="w-full h-full object-cover"
                         />
                       </div>
+                      {headerOnline && (
+                        <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+                      )}
                     </div>
                   );
                 })()}

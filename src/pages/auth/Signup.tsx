@@ -15,7 +15,6 @@ import {
   getPasswordStrength,
 } from "../../utils/validation";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface FormErrors {
   name?: string;
   email?: string;
@@ -25,7 +24,6 @@ interface FormErrors {
   terms?: string;
 }
 
-// ── Password Strength Bar ─────────────────────────────────────────────────────
 const PasswordStrengthBar: React.FC<{ password: string }> = ({ password }) => {
   if (!password) return null;
   const { score, label, color } = getPasswordStrength(password);
@@ -48,7 +46,6 @@ const PasswordStrengthBar: React.FC<{ password: string }> = ({ password }) => {
   );
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
 const Signup: React.FC = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -81,7 +78,6 @@ const Signup: React.FC = () => {
     const { name, value } = e.target;
     const updated = { ...formData, [name]: value };
     setFormData(updated);
-    // Re-validate the changed field (and confirmPassword if password changes)
     const newErrors = validate(updated);
     setErrors((prev) => ({
       ...prev,
@@ -105,7 +101,6 @@ const Signup: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Mark all fields touched and run full validation
     const allTouched: Record<string, boolean> = {
       name: true, email: true, phone: true, password: true, confirmPassword: true,
     };

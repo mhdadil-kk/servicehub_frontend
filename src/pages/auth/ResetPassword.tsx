@@ -4,14 +4,12 @@ import { useAuth } from "../../hooks/useAuth";
 import { useSearchParams, Link } from "react-router-dom";
 import { Lock, ShieldAlert, ArrowLeft, RefreshCw } from "lucide-react";
 import logo from "../../assets/logo.png";
-import toast from "react-hot-toast";
 import {
   validatePassword,
   validateConfirmPassword,
   getPasswordStrength,
 } from "../../utils/validation";
 
-// ── Password Strength Bar ─────────────────────────────────────────────────────
 const PasswordStrengthBar: React.FC<{ password: string }> = ({ password }) => {
   if (!password) return null;
   const { score, label, color } = getPasswordStrength(password);
@@ -34,13 +32,11 @@ const PasswordStrengthBar: React.FC<{ password: string }> = ({ password }) => {
   );
 };
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface FormErrors {
   newPassword?: string;
   confirmPassword?: string;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({ newPassword: "", confirmPassword: "" });
@@ -92,7 +88,6 @@ const ResetPassword: React.FC = () => {
     }
   };
 
-  // ── Invalid link screen ───────────────────────────────────────────────────
   if (!token || !email) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-6 font-sans">

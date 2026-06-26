@@ -16,10 +16,17 @@ export interface Message {
   updatedAt: string;
 }
 
+export interface Participant {
+  _id: string;
+  name?: string;
+  profilePhoto?: string;
+  role?: string;
+}
+
 export interface Conversation {
   _id: string;
-  participants: any[];
-  bookingId?: any | null;
+  participants: Participant[];
+  bookingId?: string | null;
   lastMessage?: Message | null;
   unreadCount?: number;
   providerServiceName?: string;

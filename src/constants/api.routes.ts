@@ -15,5 +15,18 @@ export const API_ROUTES = {
     PROVIDER_STATUS: (id: string) => `/admin/providers/${id}/status`,
     SERVICES: "/admin/services",
     DELETE_SERVICE: (id: string) => `/admin/services/${id}`,
-  }
+  },
+  REVIEWS: {
+    CREATE: "/reviews",
+    BY_PROVIDER: (providerId: string) => `/reviews/provider/${providerId}`,
+    LIKE: (reviewId: string) => `/reviews/${reviewId}/like`,
+  },
+  DASHBOARD: {
+    USER: "/dashboard/user",
+    PROVIDER: "/dashboard/provider",
+  },
+    PAYMENTS: {
+    CREATE_CHECKOUT: "/payments/create-checkout-session",
+    VERIFY: "/payments/verify-payment",
+  },
 };

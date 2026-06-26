@@ -9,6 +9,7 @@ export interface Booking {
     _id: string;
     userId: { _id: string; name: string; email: string; phone?: string; profilePhoto?: string };
     bio?: string;
+    profilePhoto?: string;
     hourlyRate?: number;
   } | string;
   serviceId: { _id: string; name: string; description?: string } | string;
@@ -88,7 +89,6 @@ export const bookingApi = {
   completeBooking: (id: string) =>
     axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/complete`),
 
-  // OTP Verification
   generateArrivalOtp: (id: string) =>
     axiosInstance.post<unknown, ApiResponse<Booking>>(`/bookings/${id}/otp/arrival/generate`),
 

@@ -27,7 +27,6 @@ export const NotificationBell: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-    // Poll every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [user]);
@@ -42,16 +41,6 @@ export const NotificationBell: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await notificationApi.markAsRead(id);
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (err) {
-      console.error("Failed to mark as read", err);
-    }
-  };
 
   const handleMarkAllAsRead = async () => {
     try {
@@ -73,13 +62,11 @@ export const NotificationBell: React.FC = () => {
     }
     setIsOpen(false);
 
-    // Deep link routing based on relatedId
     if (notification.relatedId) {
       const rolePrefix = user?.role === "provider" ? "/provider" : "/user";
       if (notification.type === "message") {
         navigate(`${rolePrefix}/messages?bookingId=${notification.relatedId}`);
       } else {
-        // Assume other related IDs are bookings
         navigate(`${rolePrefix}/bookings/${notification.relatedId}`);
       }
     }

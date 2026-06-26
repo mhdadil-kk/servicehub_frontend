@@ -11,13 +11,18 @@ import {
   Camera,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { authService } from "../../api/auth.service";
+import { ChangePasswordModal } from "../../components/ChangePasswordModal";
 
 const UserProfile: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
+  const [name, setName] = useState(user?.name || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [loading, setLoading] = useState(false);
 
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-  // Parse joined date from created_at
   const joinedDate = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-IN", {
         month: "long",
@@ -26,10 +31,25 @@ const UserProfile: React.FC = () => {
     : "—";
 
   const handleChangePassword = () => {
-    toast("Password change coming soon.", { icon: "🔒" });
+    setIsPasswordModalOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      const response = await authService.updateProfile({ name, phone });
+      setUser(response.data.user);
+      toast.success("Profile updated successfully!");
+    } catch (error: unknown) {
+      const err = error as any;
+      toast.error(err.response?.data?.message || "Failed to update profile");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
+    <>
     <div className="max-w-3xl mx-auto py-8 px-4 space-y-6 animate-in fade-in duration-300">
 
       {/* Page Title */}
@@ -45,10 +65,11 @@ const UserProfile: React.FC = () => {
             Personal Information
           </h2>
           <button
-            onClick={() => toast("Profile update coming soon.", { icon: "✏️" })}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
+            onClick={handleSaveProfile}
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all disabled:opacity-75"
           >
-            Save Changes
+            {loading ? "Saving..." : "Save Changes"}
           </button>
         </div>
 
@@ -88,19 +109,13 @@ const UserProfile: React.FC = () => {
               <label className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 <UserIcon size={11} /> Full Name
               </label>
-              <div className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700">
-                {user?.name ?? "—"}
-              </div>
-            </div>
-
-            {/* Role */}
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <ShieldCheck size={11} /> Account Type
-              </label>
-              <div className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 capitalize">
-                {user?.role === "user" ? "Customer" : user?.role ?? "—"}
-              </div>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none"
+                placeholder="Your Name"
+              />
             </div>
 
             {/* Email */}
@@ -123,11 +138,13 @@ const UserProfile: React.FC = () => {
               <label className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 <Phone size={11} /> Phone Number
               </label>
-              <div className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700">
-                {user?.phone ?? (
-                  <span className="text-slate-300 italic">Not provided</span>
-                )}
-              </div>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none"
+                placeholder="Phone Number"
+              />
             </div>
           </div>
 
@@ -210,6 +227,12 @@ const UserProfile: React.FC = () => {
       </div>
 
     </div>
+
+      <ChangePasswordModal 
+        isOpen={isPasswordModalOpen} 
+        onClose={() => setIsPasswordModalOpen(false)} 
+      />
+    </>
   );
 };
 

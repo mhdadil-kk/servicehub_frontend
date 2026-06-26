@@ -8,7 +8,6 @@ import {
   User, 
   LogOut, 
   HelpCircle,
-  Bell,
   Clock,
   Wallet,
   CalendarCheck,
@@ -91,6 +90,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     { name: "Dashboard", href: "/user/dashboard", icon: LayoutDashboard },
     { name: "Browse Services", href: "/user/browse", icon: Search },
     { name: "My Bookings", href: "/user/bookings", icon: Calendar },
+    { name: "Wallet", href: "/user/wallet", icon: Wallet },
     { name: "Addresses", href: "/user/addresses", icon: MapPin },
     { name: "Messages", href: "/user/messages", icon: MessageSquare },
   ];
@@ -99,7 +99,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     { name: "Dashboard", href: "/provider/dashboard", icon: LayoutDashboard },
     { name: "Bookings", href: "/provider/bookings", icon: CalendarCheck },
     { name: "Availability", href: "/provider/availability", icon: Clock },
-    { name: "Revenue", href: "/provider/revenue", icon: Wallet },
+    { name: "Wallet", href: "/provider/wallet", icon: Wallet },
     { name: "Messages", href: "/provider/messages", icon: MessageSquare },
   ];
 

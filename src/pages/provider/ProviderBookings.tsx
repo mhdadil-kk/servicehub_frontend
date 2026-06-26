@@ -6,8 +6,7 @@ import {
   MessageSquare, 
   Check, 
   X, 
-  Loader2, 
-  User, 
+  Loader2,
   Phone, 
   Mail,
   AlertCircle,
@@ -24,7 +23,6 @@ const ProviderBookings: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"pending" | "confirmed" | "completed" | "cancelled">("pending");
 
-  // Decline/Cancel Modal States
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);

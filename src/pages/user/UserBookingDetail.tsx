@@ -4,21 +4,19 @@ import {
   ArrowLeft,
   Calendar,
   Clock,
-  MapPin,
   MessageSquare,
   AlertCircle,
   Loader2,
   CheckCircle2,
-  Check,
   X,
-  Star,
-  FileText
+  FileText,
+  Star
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { ReviewModal } from "../../components/ReviewModal";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Fix Leaflet marker icon issue
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -34,6 +32,7 @@ L.Icon.Default.mergeOptions({
 import { bookingApi } from "../../api/booking.service";
 import type { Booking } from "../../api/booking.service";
 import { paymentApi } from "../../api/payment.service";
+import { generateInvoicePDF } from "../../utils/pdf";
 
 const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="flex justify-between items-center py-2.5 border-b border-slate-50 last:border-0">
@@ -59,25 +58,28 @@ const Section = ({ title, icon, children }: { title: string; icon: React.ReactNo
 );
 
 const UserBookingDetail: React.FC = () => {
-  const { bookingId } = useParams<{ bookingId: string }>();
+  const { id: bookingId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Actions state
+
   const [showCancelBox, setShowCancelBox] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonError, setCancelReasonError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   useEffect(() => {
     if (!bookingId) return;
     const fetchBooking = async () => {
       try {
         const res = await bookingApi.getBookingDetail(bookingId);
-        setBooking(res.data);
+        setBooking(res.data ?? null);
       } catch (err: any) {
         setError(err.response?.data?.message || "Failed to load booking details");
       } finally {
@@ -97,7 +99,7 @@ const UserBookingDetail: React.FC = () => {
     setIsSubmitting(true);
     try {
       const res = await bookingApi.cancelBooking(booking._id, cancelReason);
-      setBooking(res.data);
+      setBooking(res.data ?? null);
       toast.success("Booking cancelled successfully.");
       setShowCancelBox(false);
       setCancelReason("");
@@ -117,9 +119,10 @@ const UserBookingDetail: React.FC = () => {
     try {
       setIsSubmitting(true);
       toast.loading("Initiating payment...");
-      const paymentRes: any = await paymentApi.createCheckoutSession(booking._id);
-      if (paymentRes.url) {
-        window.location.href = paymentRes.url;
+      const paymentRes = await paymentApi.createCheckoutSession(booking._id);
+      const checkoutUrl = paymentRes.data?.url;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
       } else {
         throw new Error("Missing checkout URL");
       }
@@ -195,15 +198,14 @@ const UserBookingDetail: React.FC = () => {
               </span>
               <span className="w-1 h-1 rounded-full bg-slate-300" />
               <span
-                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${
-                  isConfirmed ? "bg-blue-100 text-blue-600" :
-                  isInProgress ? "bg-purple-100 text-purple-600" :
-                  isPendingPayment ? "bg-indigo-100 text-indigo-600" :
-                  isAwaitingPayment ? "bg-indigo-100 text-indigo-600" :
-                  isCompleted ? "bg-emerald-100 text-emerald-600" :
-                  isCancelled ? "bg-rose-100 text-rose-600" :
-                  "bg-amber-100 text-amber-600"
-                }`}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${isConfirmed ? "bg-blue-100 text-blue-600" :
+                    isInProgress ? "bg-purple-100 text-purple-600" :
+                      isPendingPayment ? "bg-indigo-100 text-indigo-600" :
+                        isAwaitingPayment ? "bg-indigo-100 text-indigo-600" :
+                          isCompleted ? "bg-emerald-100 text-emerald-600" :
+                            isCancelled ? "bg-rose-100 text-rose-600" :
+                              "bg-amber-100 text-amber-600"
+                  }`}
               >
                 {booking.status.replace(/_/g, " ")}
               </span>
@@ -237,7 +239,7 @@ const UserBookingDetail: React.FC = () => {
       </div>
 
       {/* ── Invoice details (For completed bookings) ── */}
-      {isCompleted && booking.finalInvoice && (
+      {(isCompleted || isPendingPayment) && booking.finalInvoice && (
         <Section title="Final Invoice" icon={<FileText size={15} />}>
           <div className="space-y-3">
             <InfoRow label="Base Labor Charge" value={`₹${booking.finalInvoice.baseCharge}`} />
@@ -248,6 +250,25 @@ const UserBookingDetail: React.FC = () => {
               <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Total Paid Amount</span>
               <span className="text-2xl font-black text-emerald-700">₹{booking.totalAmount}</span>
             </div>
+            <div className="pt-3">
+              <button
+                onClick={() => generateInvoicePDF(booking)}
+                className="w-full sm:w-auto bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
+              >
+                <FileText size={15} /> Download Receipt
+              </button>
+            </div>
+            {(isCompleted || isPendingPayment) && (
+              <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center">
+                <span className="text-sm font-bold text-slate-800">How was the service?</span>
+                <button
+                  onClick={() => setIsReviewModalOpen(true)}
+                  className="bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Star size={15} className="fill-amber-600" /> Leave a Review
+                </button>
+              </div>
+            )}
           </div>
         </Section>
       )}
@@ -324,9 +345,8 @@ const UserBookingDetail: React.FC = () => {
                 }}
                 rows={3}
                 placeholder="Why do you need to cancel this booking?"
-                className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600 resize-none transition-colors ${
-                  cancelReasonError ? "border-red-400 bg-red-50" : "border-slate-200 bg-white"
-                }`}
+                className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600 resize-none transition-colors ${cancelReasonError ? "border-red-400 bg-red-50" : "border-slate-200 bg-white"
+                  }`}
               />
               {cancelReasonError && (
                 <p className="text-xs font-bold text-red-500 flex items-center gap-1">
@@ -341,7 +361,7 @@ const UserBookingDetail: React.FC = () => {
             {isAwaitingPayment && (
               <div className="w-full flex flex-col gap-4">
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 space-y-3 w-full">
-                  <h4 className="text-sm font-black text-blue-900 mb-1">Provider Accepted! 🎉</h4>
+                  <h4 className="text-sm font-black text-blue-900 mb-1">Provider Accepted!</h4>
                   <p className="text-xs text-blue-700 font-medium">Please pay the platform booking fee to confirm your slot. This guarantees your booking.</p>
                 </div>
                 <button
@@ -378,7 +398,7 @@ const UserBookingDetail: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
+
                 <button
                   onClick={handlePayInvoice}
                   disabled={isSubmitting}
@@ -440,6 +460,17 @@ const UserBookingDetail: React.FC = () => {
           </div>
           <p className="text-sm font-semibold text-slate-700">Reason: "{booking.cancellationReason}"</p>
         </div>
+      )}
+
+      {booking && (
+        <ReviewModal
+          isOpen={isReviewModalOpen}
+          onClose={() => setIsReviewModalOpen(false)}
+          bookingId={booking._id}
+          providerName={providerUser?.name || "Provider"}
+          onSuccess={() => {
+          }}
+        />
       )}
     </div>
   );

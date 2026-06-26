@@ -4,7 +4,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { Link } from "react-router-dom";
 import { Mail, ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
 import logo from "../../assets/logo.png";
-import toast from "react-hot-toast";
 import { validateEmail } from "../../utils/validation";
 
 const ForgotPassword: React.FC = () => {
@@ -38,7 +37,6 @@ const ForgotPassword: React.FC = () => {
       await forgotPassword(email);
       setIsSent(true);
     } catch {
-      // error from useAuth is displayed below
     }
   };
 

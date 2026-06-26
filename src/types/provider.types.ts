@@ -1,7 +1,7 @@
-// ─── Shared Provider Type ─────────────────────────────────────────────────────
+
 export interface Provider {
   _id: string;
-  userId: { _id: string; name: string; email: string; phone?: string };
+  userId: { _id: string; name: string; email: string; phone?: string; profilePhoto?: string };
   bio?: string;
   profilePhoto?: string;
   serviceId?: { _id: string; name: string; description?: string };
@@ -9,6 +9,20 @@ export interface Provider {
   serviceRadius?: number;
   address?: string;
   location?: { type: string; coordinates: number[] }; 
+  averageRating?: number;
+  totalReviews?: number;
+}
+
+export interface Review {
+  _id: string;
+  bookingId: string;
+  providerId: string;
+  userId: { _id: string; name: string; profilePhoto?: string };
+  rating: number;
+  reviewText: string;
+  likedByProvider: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export const REVIEW_SNIPPETS = [

@@ -8,13 +8,11 @@ import logo from "../../assets/logo.png";
 import toast from "react-hot-toast";
 import { validateEmail } from "../../utils/validation";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface FormErrors {
   email?: string;
   password?: string;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -29,6 +29,8 @@ import MyBookings from "./pages/user/MyBookings";
 import ProviderBookings from "./pages/provider/ProviderBookings";
 import ProviderBookingDetail from "./pages/provider/ProviderBookingDetail";
 import UserBookingDetail from "./pages/user/UserBookingDetail";
+import UserWallet from "./pages/user/UserWallet";
+import ProviderWallet from "./pages/provider/ProviderWallet";
 import ChatPage from "./pages/ChatPage";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancel from "./pages/PaymentCancel";
@@ -46,9 +48,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
-  // Onboarding is now handled via a modal on the dashboard
   if (user?.role === "provider" && user?.status === "pending" && location.pathname === "/provider/onboarding") {
-     // Allow access to /provider/onboarding if specifically visited, but don't force it
   }
 
   if (user?.role === "admin") {
@@ -98,23 +98,26 @@ const App: React.FC = () => {
           <Route path="/provider" element={<Navigate to="/provider/dashboard" replace />} />
           <Route path="/provider/dashboard" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderDashboard /></ProtectedRoute>} />
           <Route path="/provider/bookings" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderBookings /></ProtectedRoute>} />
-          <Route path="/provider/bookings/:bookingId" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderBookingDetail /></ProtectedRoute>} />
-          <Route path="/provider/availability" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderAvailability /></ProtectedRoute>} />
-          <Route path="/provider/messages" element={<ProtectedRoute allowedRoles={["provider"]}><ChatPage /></ProtectedRoute>} />
+          <Route path="/provider/bookings/:id" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderBookingDetail /></ProtectedRoute>} />
           <Route path="/provider/profile" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderProfile /></ProtectedRoute>} />
-
+          <Route path="/provider/availability" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderAvailability /></ProtectedRoute>} />
+          <Route path="/provider/wallet" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderWallet /></ProtectedRoute>} />
+          <Route path="/provider/messages" element={<ProtectedRoute allowedRoles={["provider"]}><ChatPage /></ProtectedRoute>} />
+          
           <Route path="/user" element={<Navigate to="/user/dashboard" replace />} />
-          <Route path="/payment-success" element={<ProtectedRoute allowedRoles={["user"]}><PaymentSuccess /></ProtectedRoute>} />
-          <Route path="/payment-cancel" element={<ProtectedRoute allowedRoles={["user"]}><PaymentCancel /></ProtectedRoute>} />
           <Route path="/user/dashboard" element={<ProtectedRoute allowedRoles={["user"]}><UserDashboard /></ProtectedRoute>} />
           <Route path="/user/browse" element={<ProtectedRoute allowedRoles={["user"]}><BrowseServices /></ProtectedRoute>} />
-          <Route path="/user/addresses" element={<ProtectedRoute allowedRoles={["user"]}><AddressBook /></ProtectedRoute>} />
           <Route path="/user/bookings" element={<ProtectedRoute allowedRoles={["user"]}><MyBookings /></ProtectedRoute>} />
-          <Route path="/user/bookings/:bookingId" element={<ProtectedRoute allowedRoles={["user"]}><UserBookingDetail /></ProtectedRoute>} />
-          <Route path="/user/messages" element={<ProtectedRoute allowedRoles={["user"]}><ChatPage /></ProtectedRoute>} />
+          <Route path="/user/bookings/:id" element={<ProtectedRoute allowedRoles={["user"]}><UserBookingDetail /></ProtectedRoute>} />
+          <Route path="/user/wallet" element={<ProtectedRoute allowedRoles={["user"]}><UserWallet /></ProtectedRoute>} />
           <Route path="/user/profile" element={<ProtectedRoute allowedRoles={["user"]}><UserProfile /></ProtectedRoute>} />
+          <Route path="/user/addresses" element={<ProtectedRoute allowedRoles={["user"]}><AddressBook /></ProtectedRoute>} />
+          <Route path="/user/messages" element={<ProtectedRoute allowedRoles={["user"]}><ChatPage /></ProtectedRoute>} />
+
+          <Route path="/payment-success" element={<ProtectedRoute allowedRoles={["user"]}><PaymentSuccess /></ProtectedRoute>} />
+          <Route path="/payment-cancel" element={<ProtectedRoute allowedRoles={["user"]}><PaymentCancel /></ProtectedRoute>} />
         </Routes>
-    </Router>
+      </Router>
     </>
   );
 };

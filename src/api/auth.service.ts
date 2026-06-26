@@ -14,4 +14,8 @@ export const authService = {
     api.post(ENDPOINTS.AUTH.RESET_PASSWORD, data),
   googleLogin: (token: string, role?: string): Promise<ApiResponse<AuthResponse>> => 
     api.post("/auth/google", { token, role }),
+  changePassword: (data: { oldPassword: string; newPassword: string }): Promise<ApiResponse> =>
+    api.post("/auth/change-password", data),
+  updateProfile: (data: { name?: string; phone?: string }): Promise<ApiResponse<AuthResponse>> =>
+    api.patch("/auth/profile", data),
 };

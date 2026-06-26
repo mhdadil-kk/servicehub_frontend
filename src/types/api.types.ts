@@ -19,7 +19,7 @@ export interface IUser {
   role: "admin" | "user" | "provider";
   profilePhoto?: string;
   is_verified: boolean;
-  status: "approved" | "rejected" | "pending";
+  status: "approved" | "rejected" | "pending" | "in_review";
   isDeleted: boolean;
   created_at?: string;
   updated_at?: string;
@@ -43,4 +43,15 @@ export interface ResetPasswordData {
   email: string;
   token: string;
   newPassword: string;
+}
+
+export interface IService {
+  _id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  basePrice?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -34,7 +34,6 @@ const generateRRule = (day: string, start: string, end: string, startDate?: stri
   const weekday = DAYS_MAP[day];
   if (!weekday) return "";
 
-  // Guard: both start and end must be valid HH:MM strings
   if (!start || !end || !TIME_PATTERN.test(start) || !TIME_PATTERN.test(end)) return "";
 
   const [startH, startM] = start.split(":").map(Number);
@@ -43,11 +42,9 @@ const generateRRule = (day: string, start: string, end: string, startDate?: stri
   const startD = startDate ? new Date(startDate) : new Date();
   startD.setHours(startH, startM, 0, 0);
 
-  // Guard: if setHours produced an invalid date, bail out
   if (isNaN(startD.getTime())) return "";
 
-  // For 'until': RRule requires a UTC Date — use end-of-day UTC to avoid
-  // "Invalid options: until" errors from local-timezone hour manipulation.
+
   let endD: Date | undefined = undefined;
   if (endDate) {
     endD = new Date(endDate + "T23:59:59Z");
@@ -98,7 +95,6 @@ const ProviderAvailability: React.FC = () => {
 
   const [isSaving, setIsSaving] = useState(false);
 
-  // Sync overall start date to all slot recurrence rules
   const handleStartDateChange = (newStart: string) => {
     setStartDate(newStart);
     setSchedule((prev) => {
@@ -117,7 +113,6 @@ const ProviderAvailability: React.FC = () => {
     });
   };
 
-  // Sync overall end date to all slot recurrence rules
   const handleEndDateChange = (newEnd: string) => {
     setEndDate(newEnd);
     setSchedule((prev) => {
@@ -140,9 +135,7 @@ const ProviderAvailability: React.FC = () => {
     fetchAvailability();
   }, []);
 
-  // -----------------------------------
-  // FETCH AVAILABILITY
-  // -----------------------------------
+
 
   const fetchAvailability = async () => {
   try {
@@ -171,7 +164,6 @@ const ProviderAvailability: React.FC = () => {
         ...data.weeklySchedule,
       };
 
-      // auto toggle based on slots
       Object.keys(mergedSchedule).forEach((day) => {
         mergedSchedule[day].isAvailable =
           mergedSchedule[day].slots?.length > 0;
@@ -194,9 +186,7 @@ const ProviderAvailability: React.FC = () => {
   }
 };
 
-  // -----------------------------------
-  // TOGGLE DAY
-  // -----------------------------------
+
 
   const toggleDay = (day: string) => {
     setSchedule((prev) => {
@@ -233,9 +223,6 @@ const ProviderAvailability: React.FC = () => {
     });
   };
 
-  // -----------------------------------
-  // ADD SLOT
-  // -----------------------------------
 
   const addSlot = (day: string) => {
     const defaultStart = "09:00";
@@ -264,9 +251,6 @@ const ProviderAvailability: React.FC = () => {
     }));
   };
 
-  // -----------------------------------
-  // REMOVE SLOT
-  // -----------------------------------
 
   const removeSlot = (day: string, slotId: string) => {
     setSchedule((prev) => {
@@ -285,9 +269,7 @@ const ProviderAvailability: React.FC = () => {
     });
   };
 
-  // -----------------------------------
-  // UPDATE SLOT
-  // -----------------------------------
+
 
   const updateSlot = (
     day: string,
@@ -299,8 +281,6 @@ const ProviderAvailability: React.FC = () => {
       const slots = prev[day].slots.map((slot) => {
         if (slot.id === slotId) {
           const updated = { ...slot, [field]: value };
-          // Only regenerate rrule when both time fields are fully valid HH:MM values;
-          // partial values (e.g. "" or "0") during typing must not trigger RRule.
           const bothTimesValid =
             TIME_PATTERN.test(updated.start) && TIME_PATTERN.test(updated.end);
           updated.rrule = bothTimesValid
@@ -321,9 +301,7 @@ const ProviderAvailability: React.FC = () => {
     });
   };
 
-  // -----------------------------------
-  // OVERRIDES
-  // -----------------------------------
+
 
   const addOverride = () => {
     setOverrides((prev) => [
@@ -473,9 +451,6 @@ const ProviderAvailability: React.FC = () => {
     );
   };
 
-  // -----------------------------------
-  // SAVE
-  // -----------------------------------
 
   const handleSave = async () => {
     try {
@@ -502,9 +477,6 @@ const ProviderAvailability: React.FC = () => {
     }
   };
 
-  // -----------------------------------
-  // LOADING
-  // -----------------------------------
 
   if (isLoading) {
     return (

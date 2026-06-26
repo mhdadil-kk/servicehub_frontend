@@ -47,7 +47,6 @@ const userIcon = new L.DivIcon({
   iconAnchor: [10, 10],
 });
 
-// Map auto-pan and fit bounds
 const MapController = ({
   providers,
   activeId,
@@ -84,7 +83,6 @@ const MapController = ({
 const ITEMS_PER_PAGE = 5;
 
 
-// ─────────────────────────────────────────────────────────────────────────────
 const BrowseServices: React.FC = () => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -94,7 +92,6 @@ const BrowseServices: React.FC = () => {
   const [totalCount, setTotalCount] = useState<number>(0);
   const [_totalPages, setTotalPages] = useState<number>(1);
 
-  // Filters
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedRating, setSelectedRating] = useState("");
   const [nearbyActive, setNearbyActive] = useState(false);
@@ -103,16 +100,13 @@ const BrowseServices: React.FC = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<"nearby" | "category" | "rating" | "sort" | null>(null);
 
-  // Sorting
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState("desc");
 
-  // Geocoding Search
   const [locationSearch, setLocationSearch] = useState("");
   const [locationName, setLocationName] = useState("");
   const [isGeocoding, setIsGeocoding] = useState(false);
 
-  // UI State
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [profileProvider, setProfileProvider] = useState<Provider | null>(null); // Full page profile
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -239,7 +233,6 @@ const BrowseServices: React.FC = () => {
 
   const paginated = filteredProviders;
 
-  // ── PROFILE DETAIL PAGE ──
   if (profileProvider) {
     return (
       <>
@@ -258,7 +251,6 @@ const BrowseServices: React.FC = () => {
     );
   }
 
-  // ── LIST VIEW ─────────────────────────────────────────────────────────────
   return (
     <div className="h-[calc(100vh-120px)] flex -m-8 overflow-hidden">
 
@@ -515,7 +507,7 @@ const BrowseServices: React.FC = () => {
                     {/* Avatar */}
                     <div className="w-16 h-16 rounded-[20px] overflow-hidden border border-slate-100 bg-slate-50 shrink-0">
                       <img
-                        src={p.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${p.userId.name}`}
+                        src={p.profilePhoto || p.userId?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${p.userId.name}`}
                         alt={p.userId.name}
                         className="w-full h-full object-cover"
                       />
@@ -618,7 +610,7 @@ const BrowseServices: React.FC = () => {
             <div className="absolute top-6 right-6 bg-white rounded-2xl p-4 shadow-xl border border-slate-100 z-[400] w-56 space-y-3 animate-in fade-in zoom-in-95 duration-200">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-50 border border-slate-100">
-                  <img src={hp.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${hp.userId.name}`} alt="" className="w-full h-full object-cover" />
+                  <img src={hp.profilePhoto || hp.userId?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${hp.userId.name}`} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <p className="text-xs font-black text-slate-900">{hp.userId.name}</p>

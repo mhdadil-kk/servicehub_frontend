@@ -39,7 +39,8 @@ const AdminProviderDetail: React.FC = () => {
     try {
       const res = await adminService.getProviderDetail(id!);
       setProvider(res.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as any;
       toast.error("Failed to fetch details");
       navigate('/admin/providers');
     } finally {
@@ -59,7 +60,8 @@ const AdminProviderDetail: React.FC = () => {
       toast.success(`Provider ${status} successfully`);
       fetchProviderDetails();
       setShowRejectModal(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as any;
       toast.error(error.message || "Action failed");
     } finally {
       setIsVerifying(false);
@@ -202,7 +204,7 @@ const AdminProviderDetail: React.FC = () => {
                         <Circle 
                            center={[provider.location.coordinates[1], provider.location.coordinates[0]]} 
                            pathOptions={{ fillColor: '#2563eb', color: '#2563eb', weight: 1, fillOpacity: 0.15 }}
-                           radius={(provider.serviceRadius || 25) * 1609.34} // miles to meters
+                           radius={(provider.serviceRadius || 25) * 1609.34} 
                         />
                      </MapContainer>
                   </div>
@@ -223,10 +225,7 @@ const AdminProviderDetail: React.FC = () => {
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">1. Government Identity Proofs</p>
                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {provider.documents?.filter((d: any) => {
-                         // It's Identity if:
-                         // 1. It explicitly says 'identity'
-                         // 2. It's an old string URL (legacy)
-                         // 3. It's an object but missing the docType entirely
+                       
                          const isIdentity = d.docType === 'identity' || typeof d === 'string' || (typeof d === 'object' && !d.docType);
                          return isIdentity;
                       }).map((doc: any, idx: number) => {

@@ -1,24 +1,19 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared Form Validation Utility
-// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Image / File Constraints ──────────────────────────────────────────────────
 export const FILE_LIMITS = {
   profilePhoto: {
-    maxSizeBytes: 2 * 1024 * 1024, // 2 MB
+    maxSizeBytes: 2 * 1024 * 1024, 
     allowedTypes: ["image/jpeg", "image/jpg", "image/png"],
     allowedExtensions: ".jpg, .jpeg, .png",
     label: "Profile Photo",
   },
   verificationDoc: {
-    maxSizeBytes: 5 * 1024 * 1024, // 5 MB
+    maxSizeBytes: 5 * 1024 * 1024, 
     allowedTypes: ["image/jpeg", "image/jpg", "image/png", "application/pdf"],
     allowedExtensions: ".jpg, .jpeg, .png, .pdf",
     label: "Verification Document",
   },
 } as const;
 
-// ── File Validation ───────────────────────────────────────────────────────────
 export interface FileValidationResult {
   valid: boolean;
   error?: string;
@@ -29,12 +24,10 @@ export function validateFile(
   config: (typeof FILE_LIMITS)[keyof typeof FILE_LIMITS]
 ): FileValidationResult {
   
-  // Strict extension check (since browsers can misreport MIME type)
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
-  // Convert allowedExtensions (e.g. ".jpg, .jpeg, .png") into an array of raw extensions ["jpg", "jpeg", "png"]
+
   const validExts = config.allowedExtensions.split(",").map(e => e.trim().replace(".", "").toLowerCase());
   
-  // Enforce both extension AND MIME type correctly (prevent empty mime types from passing)
   if (!validExts.includes(ext) || !config.allowedTypes.includes(file.type as any)) {
     return {
       valid: false,
@@ -42,7 +35,6 @@ export function validateFile(
     };
   }
 
-  // Size limit check
   if (file.size > config.maxSizeBytes) {
     const maxMB = config.maxSizeBytes / (1024 * 1024);
     return {
@@ -54,7 +46,6 @@ export function validateFile(
   return { valid: true };
 }
 
-// ── Field Validators ──────────────────────────────────────────────────────────
 
 export function validateName(value: string): string | null {
   if (!value.trim()) return "Full name is required.";
@@ -71,7 +62,7 @@ export function validateEmail(value: string): string | null {
 }
 
 export function validatePhone(value: string): string | null {
-  if (!value.trim()) return null; // phone is optional on signup
+  if (!value.trim()) return null; 
   const phoneRegex = /^[+]?[\d\s\-().]{7,15}$/;
   if (!phoneRegex.test(value.trim())) return "Enter a valid phone number (7–15 digits).";
   return null;
@@ -107,7 +98,6 @@ export function validateHourlyRate(value: string | number): string | null {
   return null;
 }
 
-// ── Provider Onboarding Validators ────────────────────────────────────────────
 
 export function validateBio(value: string): string | null {
   if (!value || !value.trim()) return "Bio is required.";
@@ -122,9 +112,8 @@ export function validateBankField(value: string, fieldName: string, minLength: n
   return null;
 }
 
-// ── Password strength indicator (0–4) ────────────────────────────────────────
 export function getPasswordStrength(password: string): {
-  score: number; // 0–4
+  score: number; 
   label: string;
   color: string;
 } {

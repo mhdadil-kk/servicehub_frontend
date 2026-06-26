@@ -28,13 +28,11 @@ const MyBookings: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "cancelled">("upcoming");
 
-  // Cancellation Modal States
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonError, setCancelReasonError] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // Rescheduling States
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -80,8 +78,9 @@ const MyBookings: React.FC = () => {
       toast.success("Booking cancelled successfully.");
       setCancelBookingId(null);
       fetchBookings();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel booking.");
+    } catch (error: unknown) {
+      const err = error as any;
+      toast.error(err.response?.data?.message || "Failed to cancel booking.");
     } finally {
       setIsCancelling(false);
     }
@@ -104,9 +103,10 @@ const MyBookings: React.FC = () => {
   const handlePayInvoice = async (bookingId: string) => {
     try {
       toast.loading("Initiating payment...");
-      const paymentRes: any = await paymentApi.createCheckoutSession(bookingId);
-      if (paymentRes.url) {
-        window.location.href = paymentRes.url;
+      const paymentRes = await paymentApi.createCheckoutSession(bookingId);
+      const checkoutUrl = paymentRes.data?.url;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
       } else {
         throw new Error("Missing checkout URL");
       }
@@ -122,7 +122,6 @@ const MyBookings: React.FC = () => {
     return ["cancelled", "rescheduled"].includes(b.status);
   });
 
-  // Summary counts
   const upcomingCount = bookings.filter((b) => ["pending", "awaiting_payment", "confirmed", "in_progress", "completed_pending_payment"].includes(b.status)).length;
   const completedCount = bookings.filter((b) => b.status === "completed").length;
   const cancelledCount = bookings.filter((b) => ["cancelled", "rescheduled"].includes(b.status)).length;
@@ -190,8 +189,8 @@ const MyBookings: React.FC = () => {
             key={key}
             onClick={() => setActiveTab(key)}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black transition-all ${activeTab === key
-                ? "bg-white shadow text-slate-900"
-                : "text-slate-500 hover:text-slate-700"
+              ? "bg-white shadow text-slate-900"
+              : "text-slate-500 hover:text-slate-700"
               }`}
           >
             <Icon size={13} />
@@ -260,6 +259,7 @@ const MyBookings: React.FC = () => {
                       <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-sm">
                         <img
                           src={
+                            providerInfo?.profilePhoto ||
                             providerUser?.profilePhoto ||
                             `https://api.dicebear.com/7.x/initials/svg?seed=${providerUser?.name || "P"}`
                           }
@@ -403,7 +403,7 @@ const MyBookings: React.FC = () => {
                             </button>
                           </>
                         )}
-                        
+
                         {booking.status === "completed_pending_payment" && (
                           <button
                             onClick={() => {

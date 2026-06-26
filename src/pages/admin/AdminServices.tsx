@@ -38,7 +38,8 @@ const AdminServices: React.FC = () => {
     try {
       const response = await adminService.getServices();
       setServices(response.data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as any;
       toast.error(error.message || "Failed to fetch services");
       setServices([]);
     } finally {
@@ -68,7 +69,8 @@ const AdminServices: React.FC = () => {
       setServices([...(services || []), response.data]);
       setShowModal(false);
       setForm({ name: "", description: "" });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as any;
       toast.error(error.message || "Failed to add service");
     }
   };
@@ -89,7 +91,8 @@ const AdminServices: React.FC = () => {
         await adminService.deleteService(id);
         setServices((services || []).filter(s => s && s._id !== id));
         toast.success("Service deleted");
-      } catch (error: any) {
+      } catch (error: unknown) {
+      const err = error as any;
         toast.error(error.message || "Failed to delete service");
       }
     }

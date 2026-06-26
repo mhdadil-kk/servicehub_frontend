@@ -22,6 +22,7 @@ import {
 import toast from "react-hot-toast";
 import { bookingApi } from "../../api/booking.service";
 import type { Booking } from "../../api/booking.service";
+import { generateInvoicePDF } from "../../utils/pdf";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -37,7 +38,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// ─── Status badge ────────────────────────────────────────────────────────────
 const statusConfig: Record<
   string,
   { label: string; className: string }
@@ -82,7 +82,6 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-// ─── Section card wrapper ─────────────────────────────────────────────────────
 const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({
   title,
   icon,
@@ -99,7 +98,6 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   </div>
 );
 
-// ─── Info row ─────────────────────────────────────────────────────────────────
 const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <div className="flex flex-col gap-0.5">
     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
@@ -107,40 +105,35 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, v
   </div>
 );
 
-// ─── Main page ────────────────────────────────────────────────────────────────
 const ProviderBookingDetail: React.FC = () => {
-  const { bookingId } = useParams<{ bookingId: string }>();
+  const { id: bookingId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Inline decline / cancel states
   const [showReasonBox, setShowReasonBox] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // OTP States
   const [showArrivalModal, setShowArrivalModal] = useState(false);
   const [arrivalOtp, setArrivalOtp] = useState("");
   
-  // Invoice & Completion States
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceBaseCharge, setInvoiceBaseCharge] = useState("");
   const [extraCharges, setExtraCharges] = useState<{description: string, amount: string}[]>([]);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completionOtp, setCompletionOtp] = useState("");
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!bookingId) return;
     (async () => {
       try {
         setIsLoading(true);
         const res = await bookingApi.getBookingDetail(bookingId);
-        setBooking(res.data);
+        setBooking(res.data ?? null);
       } catch {
         setError("Failed to load booking details. Please try again.");
       } finally {
@@ -160,36 +153,23 @@ const ProviderBookingDetail: React.FC = () => {
     }
   }, [booking]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────
   const handleAccept = async () => {
     if (!booking) return;
     try {
       const res = await bookingApi.acceptBooking(booking._id);
-      setBooking(res.data);
+      setBooking(res.data ?? null);
       toast.success("Booking accepted! Waiting for customer to pay fee.");
     } catch {
       toast.error("Failed to accept booking.");
     }
   };
 
-  const handleComplete = async () => {
-    if (!booking) return;
-    try {
-      const res = await bookingApi.completeBooking(booking._id);
-      setBooking(res.data);
-      toast.success("Booking marked as completed!");
-    } catch {
-      toast.error("Failed to complete booking.");
-    }
-  };
-
-  // --- OTP Handlers ---
   const handleGenerateArrivalOtp = async () => {
     if (!booking) return;
     try {
       setIsSubmitting(true);
       const res = await bookingApi.generateArrivalOtp(booking._id);
-      setBooking(res.data);
+      setBooking(res.data ?? null);
       setShowArrivalModal(true);
       toast.success("Arrival marked. Customer can see the OTP now.");
     } catch (err: any) {
@@ -204,7 +184,7 @@ const ProviderBookingDetail: React.FC = () => {
     try {
       setIsSubmitting(true);
       const res = await bookingApi.verifyArrivalOtp(booking._id, arrivalOtp);
-      setBooking(res.data);
+      setBooking(res.data ?? null);
       setShowArrivalModal(false);
       setArrivalOtp("");
       toast.success("Arrival verified. Job is now in progress.");
@@ -223,7 +203,7 @@ const ProviderBookingDetail: React.FC = () => {
         baseCharge: Number(invoiceBaseCharge),
         extraCharges: extraCharges.map(c => ({ description: c.description, amount: Number(c.amount) }))
       });
-      setBooking(res.data);
+      setBooking(res.data ?? null);
       setShowInvoiceModal(false);
       setShowCompletionModal(true);
       toast.success("Invoice saved. Customer can see the Completion OTP.");
@@ -239,7 +219,7 @@ const ProviderBookingDetail: React.FC = () => {
     try {
       setIsSubmitting(true);
       const res = await bookingApi.verifyCompletionOtp(booking._id, completionOtp);
-      setBooking(res.data);
+      setBooking(res.data ?? null);
       setShowCompletionModal(false);
       setCompletionOtp("");
       toast.success("Job completed successfully! Pending payment.");
@@ -260,7 +240,7 @@ const ProviderBookingDetail: React.FC = () => {
     setIsSubmitting(true);
     try {
       const res = await bookingApi.cancelBooking(booking._id, reason);
-      setBooking(res.data);
+      setBooking(res.data ?? null);
       toast.success(
         booking.status === "pending"
           ? "Booking declined successfully."
@@ -285,7 +265,6 @@ const ProviderBookingDetail: React.FC = () => {
     if (booking) navigate(`/provider/messages?bookingId=${booking._id}`);
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -680,12 +659,22 @@ const ProviderBookingDetail: React.FC = () => {
 
             {/* COMPLETED or PENDING PAYMENT state */}
             {(isCompleted || isPendingPayment) && (
-              <button
-                onClick={handleChat}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-blue-100 transition-all hover:scale-[1.02]"
-              >
-                <MessageSquare size={15} /> Chat with Customer
-              </button>
+              <>
+                <button
+                  onClick={handleChat}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-blue-100 transition-all hover:scale-[1.02]"
+                >
+                  <MessageSquare size={15} /> Chat with Customer
+                </button>
+                {isCompleted && (
+                  <button
+                    onClick={() => generateInvoicePDF(booking)}
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:scale-[1.02]"
+                  >
+                    <FileText size={15} /> Download Invoice
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

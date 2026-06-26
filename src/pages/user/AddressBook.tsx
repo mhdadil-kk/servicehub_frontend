@@ -22,7 +22,6 @@ const AddressBook: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
 
-  // Form State
   const [editId, setEditId] = useState<string | null>(null);
   const [label, setLabel] = useState("Home");
   const [customLabel, setCustomLabel] = useState("");
@@ -77,7 +76,6 @@ const AddressBook: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  // Resolve coordinates from address string
   const handleAddressBlur = async () => {
     if (!fullAddress || fullAddress.trim().length < 5) return;
     try {
@@ -97,7 +95,6 @@ const AddressBook: React.FC = () => {
     }
   };
 
-  // Browser Geolocation
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error("Geolocation is not supported by your browser.");
@@ -168,8 +165,9 @@ const AddressBook: React.FC = () => {
       }
       setIsModalOpen(false);
       fetchAddresses();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to save address.");
+    } catch (error: unknown) {
+      const err = error as any;
+      toast.error(err.response?.data?.message || "Failed to save address.");
     } finally {
       setIsSubmitting(false);
     }

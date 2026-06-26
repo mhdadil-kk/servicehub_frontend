@@ -10,7 +10,7 @@ import logo from '../assets/logo.png';
 import { useAuthStore } from '../store/useAuthStore';
 import { 
   validateFile, FILE_LIMITS, validateBio, validateBankField, 
-  validateHourlyRate, validateRequired 
+  validateHourlyRate 
 } from '../utils/validation';
 
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents } from 'react-leaflet';
@@ -28,7 +28,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-const LocationMarker = ({ position, setPosition, setAddress }: any) => {
+interface LocationMarkerProps {
+  position: { lat: number; lng: number } | null;
+  setPosition: (pos: { lat: number; lng: number }) => void;
+  setAddress: (address: string) => void;
+}
+
+const LocationMarker: React.FC<LocationMarkerProps> = ({ position, setPosition, setAddress }) => {
   const map = useMapEvents({
     async click(e) {
       setPosition(e.latlng);
@@ -55,7 +61,6 @@ const LocationMarker = ({ position, setPosition, setAddress }: any) => {
     <Marker position={position}></Marker>
   );
 };
-// ----------------------
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -151,7 +156,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
   const [identityDocs, setIdentityDocs] = useState<File[]>([]);
   const [licenseDocs, setLicenseDocs] = useState<File[]>([]);
   const [availableServices, setAvailableServices] = useState<any[]>([]);
-  const [selectedService, setSelectedService] = useState<any>(null);
+  const [selectedService, setSelectedService] = useState<{ _id: string; name: string } | null>(null);
 
   const profileInputRef = useRef<HTMLInputElement>(null);
   const docsInputRef = useRef<HTMLInputElement>(null);
@@ -198,7 +203,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
           setCurrentStep(profile.onboardingStep as Step);
           setProgress(profile.onboardingStep * 20);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+      const err = error as any;
         toast.error("Initialization failed");
       } finally {
         setInitialLoading(false);
@@ -210,7 +216,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
   const handleNext = async () => {
     try {
       if (currentStep === 1) {
-        // Step 1: Personal Info
         const newErrors: Record<string, string> = {};
         if (!profilePhoto && !profilePreview) {
           newErrors.profilePhoto = "Please upload a profile photo.";
@@ -229,7 +234,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         if (profilePhoto) formData.append("profilePhoto", profilePhoto);
         await providerApi.updateProfile(formData);
       } else if (currentStep === 2) {
-        // Step 2: Location
         const newErrors: Record<string, string> = {};
         if (!form.address) {
           newErrors.address = "Please enter your address.";
@@ -244,12 +248,11 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         setIsSubmitting(true);
         await providerApi.updateLocation({
           address: form.address,
-          latitude: form.latitude,
-          longitude: form.longitude,
+          latitude: form.latitude as number,
+          longitude: form.longitude as number,
           serviceRadius: form.radius
         });
       } else if (currentStep === 3) {
-        // Step 3: Service Selection
         const newErrors: Record<string, string> = {};
         if (!selectedService) {
           newErrors.service = "Please select a service category.";
@@ -266,7 +269,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
           hourlyRate: Number(form.hourlyRate)
         });
       } else if (currentStep === 4) {
-        // Step 4: Verification Docs
         const newErrors: Record<string, string> = {};
         if (identityDocs.length === 0) {
           newErrors.identityDocs = "Please upload at least one identity document.";
@@ -284,7 +286,6 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         licenseDocs.forEach(file => formData.append("license", file));
         await providerApi.uploadDocuments(formData);
       } else if (currentStep === 5) {
-        // Step 5: Bank Details
         const newErrors: Record<string, string> = {};
         const ahErr = validateBankField(form.accountHolderName, "Account holder name");
         if (ahErr) newErrors.accountHolderName = ahErr;
@@ -323,7 +324,8 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
       const next = (currentStep + 1) as Step;
       setCurrentStep(next);
       setProgress(next * 20);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as any;
       toast.error(error.message || "Action failed");
     } finally {
       setIsSubmitting(false);
@@ -334,8 +336,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
 
   const defaultPosition = form.latitude && form.longitude 
     ? { lat: form.latitude, lng: form.longitude } 
-    : { lat: 51.505, lng: -0.09 }; // Default arbitrary fallback
-
+    : { lat: 51.505, lng: -0.09 };
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 lg:p-10">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500" />
@@ -416,7 +417,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                   if (f) { 
                                     const result = validateFile(f, FILE_LIMITS.profilePhoto);
                                     if (!result.valid) {
-                                      setErrors({...errors, profilePhoto: result.error});
+                                      setErrors({...errors, profilePhoto: result.error || "Invalid file"});
                                       e.target.value = "";
                                       return;
                                     }

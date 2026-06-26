@@ -169,11 +169,11 @@ const LandingPage: React.FC = () => {
              </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {providers.map((p, i) => (
+              {providers.map((p) => (
                 <div key={p._id} className="bg-white rounded-[32px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-2xl transition-all group">
                   <div className="relative h-56 overflow-hidden bg-slate-100">
                     <img 
-                      src={p.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${p.userId?.name || 'User'}`} 
+                      src={p.profilePhoto || p.userId?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${p.userId?.name || 'User'}`} 
                       alt={p.userId?.name} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                     />
@@ -189,7 +189,7 @@ const LandingPage: React.FC = () => {
                         <p className="text-sm font-bold text-blue-600">{p.serviceId?.name || "Service"}</p>
                       </div>
                       <div className="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden -mt-12 relative z-10 bg-white">
-                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${p.userId?.name || 'P'}`} alt="" />
+                        <img src={p.profilePhoto || p.userId?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${p.userId?.name || 'P'}`} alt="" className="w-full h-full object-cover" />
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-6 border-t border-slate-50">

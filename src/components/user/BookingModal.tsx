@@ -7,15 +7,13 @@ import {
   Check, 
   Loader2, 
   AlertCircle,
-  Plus,
-  Navigation
+  Plus
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { bookingApi } from "../../api/booking.service";
 import type { AvailableSlot } from "../../api/booking.service";
 import { addressApi } from "../../api/address.service";
 import type { Address } from "../../api/address.service";
-import { paymentApi } from "../../api/payment.service";
 import type { Provider } from "../../types/provider.types";
 
 interface BookingModalProps {
@@ -43,12 +41,10 @@ const BookingModal: React.FC<BookingModalProps> = ({
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
 
-  // Address State
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   
-  // Quick Add Address Form inside Modal
   const [showAddAddressForm, setShowAddAddressForm] = useState(false);
   const [addressLabel, setAddressLabel] = useState("Home");
   const [customLabel, setCustomLabel] = useState("");
@@ -100,7 +96,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
       const addrList = res.data || [];
       setAddresses(addrList);
       
-      // Auto select default address
       const defaultAddr = addrList.find(a => a.isDefault);
       if (initialAddressId) {
         setSelectedAddressId(initialAddressId);
@@ -168,7 +163,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
       setFullAddress("");
       setCustomLabel("");
       
-      // Refresh addresses and auto select the newly added address
       const updatedRes = await addressApi.getAddresses();
       const updatedList = updatedRes.data || [];
       setAddresses(updatedList);
@@ -190,7 +184,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
     setIsSubmitting(true);
     try {
       if (rescheduleBookingId) {
-        // Reschedule
         await bookingApi.rescheduleBooking(rescheduleBookingId, {
           date: selectedDate,
           slot: { start: selectedSlot.start, end: selectedSlot.end },
@@ -207,14 +200,15 @@ const BookingModal: React.FC<BookingModalProps> = ({
           slot: { start: selectedSlot.start, end: selectedSlot.end },
           notes
         };
-        const res = await bookingApi.createBooking(payload);
+        await bookingApi.createBooking(payload);
         
         toast.success("Booking request sent! Waiting for provider acceptance.");
         onSuccess?.();
         onClose();
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create booking.");
+    } catch (error: unknown) {
+      const err = error as any;
+      toast.error(err.response?.data?.message || "Failed to create booking.");
     } finally {
       setIsSubmitting(false);
     }

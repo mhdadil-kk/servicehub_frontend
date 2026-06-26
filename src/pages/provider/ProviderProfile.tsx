@@ -5,23 +5,13 @@ import { serviceApi } from "../../api/service.service";
 import { useAuthStore } from "../../store/useAuthStore";
 import toast from "react-hot-toast";
 import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Shield, 
-  DollarSign, 
-  Briefcase, 
-  Camera, 
-  AlertTriangle, 
-  RefreshCw, 
-  CreditCard, 
-  FileText, 
-  CheckCircle,
-  Clock,
-  ExternalLink,
-  ChevronRight
+  Camera, RefreshCw, CheckCircle, UploadCloud, ChevronRight, Briefcase, 
+  User, MapPin, DollarSign, FileText, ExternalLink, Shield, CreditCard, Lock,
+  Mail, Phone, AlertTriangle, Clock, Star, Heart, Loader2
 } from "lucide-react";
+import { ChangePasswordModal } from "../../components/ChangePasswordModal";
+import { reviewService } from "../../api/review.service";
+import type { Review } from "../../types/provider.types";
 
 const ProviderProfile: React.FC = () => {
   const { user, setUser } = useAuthStore();
@@ -30,10 +20,12 @@ const ProviderProfile: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
-  // Active Tab: 'personal', 'service', 'documents', 'bank'
-  const [activeTab, setActiveTab] = useState<string>("personal");
+  const [activeTab, setActiveTab] = useState("personal");
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  // Form States
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
@@ -46,19 +38,16 @@ const ProviderProfile: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState("");
   const [routingNumber, setRoutingNumber] = useState("");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
-  
-  // File uploads
+
   const [newPhoto, setNewPhoto] = useState<File | null>(null);
   const [identityFiles, setIdentityFiles] = useState<FileList | null>(null);
   const [licenseFiles, setLicenseFiles] = useState<FileList | null>(null);
 
-  // Upload Error states
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [photoError, setPhotoError] = useState("");
   const [identityError, setIdentityError] = useState("");
   const [licenseError, setLicenseError] = useState("");
 
-  // Load profile data and list of active services
   const loadData = async () => {
     try {
       setLoading(true);
@@ -72,12 +61,10 @@ const ProviderProfile: React.FC = () => {
       setServices(servicesRes.data || []);
 
       if (prof) {
-        // Sync user onboarding status
         if (user && user.status !== prof.onboardingStatus) {
           setUser({ ...user, status: prof.onboardingStatus });
         }
 
-        // Initialize state fields
         const userObj = prof.userId || {};
         setName(userObj.name || "");
         setPhone(userObj.phone || "");
@@ -85,7 +72,6 @@ const ProviderProfile: React.FC = () => {
         setAddress(prof.address || "");
         setServiceRadius(prof.serviceRadius || 25);
         
-        // serviceId can be populated object or string
         const svcId = prof.serviceId?._id || prof.serviceId || "";
         setSelectedServiceId(svcId);
         setHourlyRate(prof.hourlyRate || 0);
@@ -96,7 +82,6 @@ const ProviderProfile: React.FC = () => {
         setAccountNumber(bank.accountNumber || "");
         setRoutingNumber(bank.routingNumber || "");
         
-        // Resolve profile photo URL
         if (prof.profilePhoto) {
           const photoUrl = prof.profilePhoto.startsWith("http") 
             ? prof.profilePhoto 
@@ -160,10 +145,9 @@ const ProviderProfile: React.FC = () => {
     toast.success(`${files.length} license document(s) ready.`);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     
-    // Client-side validations
     const newErrors: Record<string, string> = {};
     const bioErr = validateBio(bio);
     if (bioErr) newErrors.bio = bioErr;
@@ -174,14 +158,11 @@ const ProviderProfile: React.FC = () => {
     const ahErr = validateBankField(accountHolderName, "Account holder name");
     if (ahErr) newErrors.accountHolderName = ahErr;
     
-    const bnErr = validateBankField(bankName, "Bank name");
-    if (bnErr) newErrors.bankName = bnErr;
-    
     const anErr = validateBankField(accountNumber, "Account number", 8);
     if (anErr) newErrors.accountNumber = anErr;
     
-    const rnErr = validateBankField(routingNumber, "Routing code", 5);
-    if (rnErr) newErrors.routingNumber = rnErr;
+    const rnErr = validateBankField(ifscCode, "IFSC code", 5);
+    if (rnErr) newErrors.ifscCode = rnErr;
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -193,7 +174,6 @@ const ProviderProfile: React.FC = () => {
     setSaving(true);
 
     try {
-      // 1. Save personal profile (Name, Phone, Bio, and photo if added)
       const personalData = new FormData();
       personalData.append("name", name);
       personalData.append("phone", phone);
@@ -203,7 +183,6 @@ const ProviderProfile: React.FC = () => {
       }
       await providerApi.updateProfile(personalData);
 
-      // 2. Save Location Details (lat/lng defaults or updated address)
       const lat = profile?.location?.coordinates?.[1] || 30.2672; // fallback to Austin or default
       const lng = profile?.location?.coordinates?.[0] || -97.7431;
       await providerApi.updateLocation({
@@ -213,7 +192,6 @@ const ProviderProfile: React.FC = () => {
         serviceRadius
       });
 
-      // 3. Save Service Details
       if (selectedServiceId) {
         await providerApi.updateServiceDetails({
           serviceId: selectedServiceId,
@@ -221,15 +199,13 @@ const ProviderProfile: React.FC = () => {
         });
       }
 
-      // 4. Save Bank details
       await providerApi.updateBankDetails({
         accountHolderName,
         bankName,
         accountNumber,
-        routingNumber
+        routingNumber: ifscCode
       });
 
-      // 5. Upload verification documents if selected
       if ((identityFiles && identityFiles.length > 0) || (licenseFiles && licenseFiles.length > 0)) {
         const docData = new FormData();
         if (identityFiles) {
@@ -255,7 +231,6 @@ const ProviderProfile: React.FC = () => {
     }
   };
 
-  // Helper to determine status style
   const getStatusBadge = (status: string) => {
     const badges: Record<string, React.ReactNode> = {
       approved: <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 border border-emerald-100"><CheckCircle size={14} /> Approved</span>,
@@ -315,7 +290,7 @@ const ProviderProfile: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={saving}
             className="bg-blue-600 text-white px-8 py-3.5 rounded-[20px] font-black text-sm uppercase tracking-wider shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all flex items-center gap-2 hover:-translate-y-0.5 active:scale-95 disabled:opacity-75"
           >
@@ -336,9 +311,11 @@ const ProviderProfile: React.FC = () => {
         <div className="md:col-span-1 space-y-2">
           {[
             { id: "personal", label: "Personal Info", icon: User },
+            { id: "security", label: "Security", icon: Lock },
             { id: "service", label: "Service & Location", icon: Briefcase },
             { id: "documents", label: "Documents", icon: FileText },
-            { id: "bank", label: "Bank Account", icon: CreditCard }
+            { id: "bank", label: "Bank Account", icon: CreditCard },
+            { id: "reviews", label: "Reviews", icon: Star }
           ].map((tab) => {
             const isSelected = activeTab === tab.id;
             return (
@@ -420,6 +397,35 @@ const ProviderProfile: React.FC = () => {
                       />
                       {errors.bio && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.bio}</p>}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* === TAB: SECURITY === */}
+              {activeTab === "security" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 mb-1">Account Security</h3>
+                    <p className="text-slate-400 text-xs font-semibold">Update your account password regularly to keep it secure.</p>
+                  </div>
+                  
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <Lock size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Change Password</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Ensure your account is using a long, random password to stay secure.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPasswordModalOpen(true)}
+                      className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-bold px-5 py-2.5 rounded-xl transition-all shadow-sm"
+                    >
+                      Update
+                    </button>
                   </div>
                 </div>
               )}
@@ -603,33 +609,21 @@ const ProviderProfile: React.FC = () => {
               {activeTab === "bank" && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-black text-slate-900 mb-1">Bank Account Settings</h3>
-                    <p className="text-slate-400 text-xs font-semibold">Enter details for receiving your earnings payouts.</p>
+                    <h3 className="text-lg font-black text-slate-900 mb-1">Bank Details</h3>
+                    <p className="text-slate-400 text-xs font-semibold">Where should we send your earnings?</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6 bg-slate-50 border border-slate-100 p-6 rounded-2xl">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400">Account Holder Name</label>
                       <input
                         type="text"
                         value={accountHolderName}
                         onChange={(e) => { setAccountHolderName(e.target.value); setErrors(prev => ({...prev, accountHolderName: ""})); }}
-                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.accountHolderName ? 'border-red-400' : 'border-slate-100'}`}
+                        className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.accountHolderName ? 'border-red-400' : 'border-slate-200'}`}
                         placeholder="John Doe"
                       />
                       {errors.accountHolderName && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.accountHolderName}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Bank Name</label>
-                      <input
-                        type="text"
-                        value={bankName}
-                        onChange={(e) => { setBankName(e.target.value); setErrors(prev => ({...prev, bankName: ""})); }}
-                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.bankName ? 'border-red-400' : 'border-slate-100'}`}
-                        placeholder="HDFC Bank"
-                      />
-                      {errors.bankName && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.bankName}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -637,34 +631,94 @@ const ProviderProfile: React.FC = () => {
                       <input
                         type="text"
                         value={accountNumber}
-                        onChange={(e) => { setAccountNumber(e.target.value); setErrors(prev => ({...prev, accountNumber: ""})); }}
-                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.accountNumber ? 'border-red-400' : 'border-slate-100'}`}
-                        placeholder="5010029384729"
+                        onChange={(e) => { setAccountNumber(e.target.value.replace(/\D/g, '')); setErrors(prev => ({...prev, accountNumber: ""})); }}
+                        className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.accountNumber ? 'border-red-400' : 'border-slate-200'}`}
+                        placeholder="000000000000"
+                        maxLength={18}
                       />
                       {errors.accountNumber && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.accountNumber}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Routing / IFSC Code</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">IFSC Code</label>
                       <input
                         type="text"
-                        value={routingNumber}
-                        onChange={(e) => { setRoutingNumber(e.target.value); setErrors(prev => ({...prev, routingNumber: ""})); }}
-                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:border-blue-600 transition-all ${errors.routingNumber ? 'border-red-400' : 'border-slate-100'}`}
-                        placeholder="HDFC0001234"
+                        value={ifscCode}
+                        onChange={(e) => { setIfscCode(e.target.value.toUpperCase()); setErrors(prev => ({...prev, ifscCode: ""})); }}
+                        className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.ifscCode ? 'border-red-400' : 'border-slate-200'}`}
+                        placeholder="ABCD0123456"
+                        maxLength={11}
                       />
-                      {errors.routingNumber && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.routingNumber}</p>}
+                      {errors.ifscCode && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.ifscCode}</p>}
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* === TAB 5: REVIEWS === */}
+              {activeTab === "reviews" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 mb-1">Customer Reviews</h3>
+                    <p className="text-slate-400 text-xs font-semibold">See what customers are saying about your service.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {reviewsLoading ? (
+                      <div className="py-8 flex justify-center">
+                        <Loader2 size={24} className="animate-spin text-blue-600" />
+                      </div>
+                    ) : reviews.length === 0 ? (
+                      <div className="py-8 text-center bg-slate-50 rounded-2xl border border-slate-100">
+                        <p className="text-slate-500 font-bold text-sm">You have no reviews yet.</p>
+                      </div>
+                    ) : (
+                      reviews.map((rev) => (
+                        <div key={rev._id} className="bg-slate-50 rounded-2xl border border-slate-100 p-6 space-y-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-sm font-black text-slate-900">{rev.userId.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="flex">
+                                  {[1, 2, 3, 4, 5].map(i => (
+                                    <Star key={i} size={12} className={i <= rev.rating ? "fill-amber-400 text-amber-400" : "fill-slate-200 text-slate-200"} />
+                                  ))}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  {new Date(rev.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); handleLikeReview(rev._id); }}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                                rev.likedByProvider 
+                                  ? "bg-rose-50 border-rose-100 text-rose-600" 
+                                  : "bg-white border-slate-200 text-slate-500 hover:bg-slate-100"
+                              }`}
+                            >
+                              <Heart size={14} className={rev.likedByProvider ? "fill-rose-600" : ""} />
+                              {rev.likedByProvider ? "Liked" : "Like"}
+                            </button>
+                          </div>
+                          <p className="text-sm font-medium text-slate-600 italic">"{rev.reviewText}"</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </form>
           </div>
         </div>
 
       </div>
 
+      <ChangePasswordModal 
+        isOpen={isPasswordModalOpen} 
+        onClose={() => setIsPasswordModalOpen(false)} 
+      />
     </div>
   );
 };

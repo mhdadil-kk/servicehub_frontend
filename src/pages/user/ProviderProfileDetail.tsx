@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  MapPin, Star, Check, Phone, Mail, Award, ArrowLeft, ShieldCheck, Briefcase, MessageCircle, Loader2
+  MapPin, Star, Check, Phone, Mail, Award, ArrowLeft, ShieldCheck, Briefcase, MessageCircle, Loader2, Heart
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Provider } from "../../types/provider.types";
 import { getSimulated } from "../../types/provider.types";
 import { chatApi } from "../../api/chat.service";
+import { reviewService } from "../../api/review.service";
+import type { Review } from "../../types/provider.types";
 import toast from "react-hot-toast";
 
 interface ProviderProfileDetailProps {
@@ -36,9 +38,25 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
   const navigate = useNavigate();
   const sim = getSimulated(provider, userCoords);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const res = await reviewService.getProviderReviews(provider._id);
+        setReviews(res.data?.reviews || []);
+      } catch (error) {
+        console.error("Failed to load reviews", error);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+    fetchReviews();
+  }, [provider._id]);
 
   const handleChat = async () => {
-    if (isChatLoading) return; // prevent double-click
+    if (isChatLoading) return;  
     setIsChatLoading(true);
     try {
       const res = await chatApi.getOrCreateDirectConversation(provider.userId._id);
@@ -78,7 +96,7 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
             <div className="relative shrink-0">
               <div className="w-28 h-28 rounded-[28px] overflow-hidden border-2 border-slate-100 shadow-md bg-slate-50">
                 <img
-                  src={provider.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${provider.userId.name}`}
+                  src={provider.profilePhoto || provider.userId?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${provider.userId.name}`}
                   alt={provider.userId.name}
                   className="w-full h-full object-cover"
                 />
@@ -118,10 +136,10 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rating</p>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xl font-black text-slate-900">{sim.rating}</span>
+                    <span className="text-xl font-black text-slate-900">{provider.averageRating || 0}</span>
                     <Star size={16} className="fill-amber-400 text-amber-400" />
                   </div>
-                  <p className="text-[10px] text-slate-400 font-bold">({sim.reviewCount})</p>
+                  <p className="text-[10px] text-slate-400 font-bold">({provider.totalReviews || 0})</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Hourly Rate</p>
@@ -267,34 +285,52 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black text-slate-900">Reviews</h2>
             <span className="text-xs font-black text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full">
-              {sim.reviewCount} total
+              {provider.totalReviews || 0} total
             </span>
           </div>
 
           <div className="space-y-4">
-            {sim.reviews.map((rev, i) => (
-              <div key={i} className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-7 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-md shadow-blue-100">
-                      {rev.reviewer.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-900">{rev.reviewer}</p>
-                      <p className="text-[10px] font-bold text-slate-400">{rev.ago}</p>
-                    </div>
-                  </div>
-                  <Stars count={rev.stars} />
-                </div>
-                <p className="text-sm font-medium text-slate-600 leading-relaxed italic">
-                  "{rev.text}"
-                </p>
+            {reviewsLoading ? (
+              <div className="py-8 flex justify-center">
+                <Loader2 size={24} className="animate-spin text-blue-600" />
               </div>
-            ))}
-
-            <button className="w-full py-4 rounded-[28px] border-2 border-dashed border-slate-200 text-slate-400 font-black text-sm hover:border-blue-300 hover:text-blue-500 transition-all">
-              Load {sim.reviewCount - 2} more reviews
-            </button>
+            ) : reviews.length === 0 ? (
+              <div className="py-8 text-center bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-slate-500 font-bold text-sm">No reviews yet.</p>
+              </div>
+            ) : (
+              reviews.map((rev) => (
+                <div key={rev._id} className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-7 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-md shadow-blue-100 overflow-hidden">
+                        {rev.userId.profilePhoto ? (
+                          <img src={rev.userId.profilePhoto} alt={rev.userId.name} className="w-full h-full object-cover" />
+                        ) : (
+                          rev.userId.name.split(" ").map(n => n[0]).join("").slice(0, 2)
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-900">{rev.userId.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400">
+                          {new Date(rev.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <Stars count={rev.rating} />
+                  </div>
+                  <p className="text-sm font-medium text-slate-600 leading-relaxed italic">
+                    "{rev.reviewText}"
+                  </p>
+                  {rev.likedByProvider && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 bg-rose-50 text-rose-600 px-2 py-1 rounded-md">
+                      <Heart size={12} className="fill-rose-600" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Liked by Provider</span>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

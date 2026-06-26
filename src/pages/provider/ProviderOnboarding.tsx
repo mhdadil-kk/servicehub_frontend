@@ -32,7 +32,6 @@ const ProviderOnboarding: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [progress, setProgress] = useState(25);
 
-  // Form State pre-filled from user data
   const [form, setForm] = useState({
     name: user?.name || "",
     phone: user?.phone || "",
@@ -41,7 +40,6 @@ const ProviderOnboarding: React.FC = () => {
     latitude: null as number | null,
     longitude: null as number | null,
     hourlyRate: "",
-    // Bank Details
     accountHolderName: "",
     bankName: "",
     accountNumber: "",
@@ -57,7 +55,6 @@ const ProviderOnboarding: React.FC = () => {
 
   const [isLocating, setIsLocating] = useState(false);
 
-  // â”€â”€ Inline validation errors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [errors, setErrors] = useState<Record<string, string>>({});
   const clearError = (key: string) => setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
   const setError = (key: string, msg: string) => setErrors(prev => ({ ...prev, [key]: msg }));
@@ -69,7 +66,6 @@ const ProviderOnboarding: React.FC = () => {
       </p>
     ) : null;
 
-  // Geolocate device using HTML5 Geolocation API
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error("Geolocation is not supported by your browser");
@@ -107,7 +103,6 @@ const ProviderOnboarding: React.FC = () => {
     );
   };
 
-  // Resolve coordinate from address text search (Nominatim)
   const handleAddressBlur = async () => {
     if (!form.address || form.address.trim().length < 5) return;
 
@@ -195,7 +190,6 @@ const ProviderOnboarding: React.FC = () => {
         if (profileRes.data) {
           const profile = profileRes.data;
           
-          // If already submitted or approved, go to dashboard
           if (profile.onboardingStatus !== "pending") {
             navigate("/provider");
             return;
@@ -217,11 +211,11 @@ const ProviderOnboarding: React.FC = () => {
           if (profile.profilePhoto) setProfilePreview(profile.profilePhoto);
           if (profile.serviceId) setSelectedService(profile.serviceId);
           
-          // Set step based on current progress
           setCurrentStep(profile.onboardingStep as Step);
           setProgress(profile.onboardingStep * 25);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+      const err = error as any;
         toast.error(error.message || "Failed to initialize onboarding");
       } finally {
         setLoadingServices(false);
@@ -237,11 +231,9 @@ const ProviderOnboarding: React.FC = () => {
 
     try {
       if (currentStep === 1) {
-        // Step 1 validation
         if (!profilePhoto && !profilePreview) newErrors.profilePhoto = "Please upload a profile photo.";
         if (!form.address.trim()) newErrors.address = "Street address is required.";
         if (form.latitude === null || form.longitude === null) newErrors.address = (newErrors.address ? newErrors.address + " " : "") + "Please verify your address or use current location.";
-        // Guard: if a file was typed/dragged bypassing onChange, re-check it
         if (errors.profilePhoto && !newErrors.profilePhoto) {
           newErrors.profilePhoto = errors.profilePhoto;
         }
@@ -256,7 +248,6 @@ const ProviderOnboarding: React.FC = () => {
         await providerApi.updateProfile(formData);
       } 
       else if (currentStep === 2) {
-        // Step 2 validation
         if (!selectedService) newErrors.service = "Please select a service category.";
         const rateErr = validateHourlyRate(form.hourlyRate);
         if (rateErr) newErrors.hourlyRate = rateErr;
@@ -268,7 +259,6 @@ const ProviderOnboarding: React.FC = () => {
         });
       }
       else if (currentStep === 3) {
-        // Step 3 validation
         if (verificationDocs.length === 0) newErrors.verificationDocs = "Please upload at least one verification document before continuing.";
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsSubmitting(false); return; }
         const formData = new FormData();
@@ -276,7 +266,6 @@ const ProviderOnboarding: React.FC = () => {
         await providerApi.uploadDocuments(formData);
       }
       else if (currentStep === 4) {
-        // Step 4 validation
         const ahErr = validateBankField(form.accountHolderName, "Account holder name");
         if (ahErr) newErrors.accountHolderName = ahErr;
         
@@ -309,8 +298,8 @@ const ProviderOnboarding: React.FC = () => {
       } else {
         setProgress(100);
       }
-    } catch (error: any) {
-      // Try to parse a field-level error from the server response
+    } catch (error: unknown) {
+      const err = error as any;
       const serverMsg: string = error?.response?.data?.message || error?.message || "";
       if (serverMsg.toLowerCase().includes("photo") || serverMsg.toLowerCase().includes("image") || serverMsg.toLowerCase().includes("jpg") || serverMsg.toLowerCase().includes("png")) {
         setError("profilePhoto", "Only JPG, JPEG, and PNG images are allowed for profile photos.");
@@ -402,9 +391,7 @@ const ProviderOnboarding: React.FC = () => {
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 overflow-y-auto bg-slate-50/30">
-        {/* Top bar */}
         <header className="h-20 px-10 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
           <div className="bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full border border-blue-100">
              Draft - Setup in Progress
@@ -421,7 +408,6 @@ const ProviderOnboarding: React.FC = () => {
 
         <div className="max-w-4xl mx-auto py-12 px-10">
 
-          {/* â”€â”€ STEP 1: Personal Info â”€â”€ */}
           {currentStep === 1 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div>
@@ -430,7 +416,6 @@ const ProviderOnboarding: React.FC = () => {
               </div>
 
               <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 space-y-10">
-                {/* Photo Upload */}
                 <div className="flex items-center gap-8">
                   <div className="relative group">
                     <input type="file" ref={profileInputRef} className="hidden" onChange={handleProfilePhotoChange} />
@@ -545,7 +530,6 @@ const ProviderOnboarding: React.FC = () => {
             </div>
           )}
 
-          {/* â”€â”€ STEP 2: Service Selection â”€â”€ */}
           {currentStep === 2 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -651,7 +635,6 @@ const ProviderOnboarding: React.FC = () => {
             </div>
           )}
 
-          {/* â”€â”€ STEP 3: Verification Documents â”€â”€ */}
           {currentStep === 3 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div>
@@ -726,7 +709,6 @@ const ProviderOnboarding: React.FC = () => {
             </div>
           )}
 
-          {/* â”€â”€ STEP 4: Bank Details â”€â”€ */}
           {currentStep === 4 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div>
@@ -804,7 +786,6 @@ const ProviderOnboarding: React.FC = () => {
             </div>
           )}
 
-          {/* â”€â”€ BOTTOM NAV (steps 1-3) â”€â”€ */}
           {currentStep < 4 && (
             <div className="mt-12 flex items-center justify-between bg-white/50 p-6 rounded-[32px] border border-slate-100">
               <div className="flex gap-4">
