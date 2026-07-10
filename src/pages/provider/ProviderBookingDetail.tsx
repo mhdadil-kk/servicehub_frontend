@@ -18,11 +18,13 @@ import {
   Briefcase,
   FileText,
   Hash,
+  Flag,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { bookingApi } from "../../api/booking.service";
+import { useBooking } from "../../hooks/useBooking";
 import type { Booking } from "../../api/booking.service";
 import { generateInvoicePDF } from "../../utils/pdf";
+import ReportModal from "../../components/shared/ReportModal";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -56,7 +58,11 @@ const statusConfig: Record<
   },
   completed: {
     label: "Completed",
-    className: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+    className: "bg-emerald-50 text-emerald-600 border border-emerald-100",
+  },
+  awaiting_user_confirmation: {
+    label: "Awaiting User Confirmation",
+    className: "bg-purple-50 text-purple-600 border border-purple-100",
   },
   cancelled: {
     label: "Cancelled",
@@ -108,6 +114,20 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, v
 const ProviderBookingDetail: React.FC = () => {
   const { id: bookingId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const {
+    getBookingDetail,
+    acceptBooking,
+    cancelBooking,
+    generateArrivalOtp,
+    verifyArrivalOtp,
+    generateCompletionOtp,
+    verifyCompletionOtp,
+    providerRescheduleBooking,
+    fetchAvailableSlots,
+    slots,
+    isLoadingSlots,
+    isSubmitting,
+  } = useBooking();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,7 +136,6 @@ const ProviderBookingDetail: React.FC = () => {
   const [showReasonBox, setShowReasonBox] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showArrivalModal, setShowArrivalModal] = useState(false);
   const [arrivalOtp, setArrivalOtp] = useState("");
@@ -126,14 +145,28 @@ const ProviderBookingDetail: React.FC = () => {
   const [extraCharges, setExtraCharges] = useState<{description: string, amount: string}[]>([]);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completionOtp, setCompletionOtp] = useState("");
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
+  // Reschedule State
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleSlot, setRescheduleSlot] = useState<{ start: string; end: string } | null>(null);
+
+  // Fetch slots when date changes
+  useEffect(() => {
+    if (rescheduleDate && booking) {
+      const providerInfo: any = booking.providerId;
+      fetchAvailableSlots(providerInfo._id || providerInfo, rescheduleDate);
+    }
+  }, [rescheduleDate, booking, fetchAvailableSlots]);
 
   useEffect(() => {
     if (!bookingId) return;
     (async () => {
       try {
         setIsLoading(true);
-        const res = await bookingApi.getBookingDetail(bookingId);
-        setBooking(res.data ?? null);
+        const res = await getBookingDetail(bookingId);
+        setBooking(res ?? null);
       } catch {
         setError("Failed to load booking details. Please try again.");
       } finally {
@@ -156,77 +189,89 @@ const ProviderBookingDetail: React.FC = () => {
   const handleAccept = async () => {
     if (!booking) return;
     try {
-      const res = await bookingApi.acceptBooking(booking._id);
-      setBooking(res.data ?? null);
-      toast.success("Booking accepted! Waiting for customer to pay fee.");
+      const res = await acceptBooking(booking._id);
+      if (res) {
+        const detail = await getBookingDetail(booking._id);
+        setBooking(detail);
+      }
     } catch {
-      toast.error("Failed to accept booking.");
     }
   };
 
   const handleGenerateArrivalOtp = async () => {
     if (!booking) return;
     try {
-      setIsSubmitting(true);
-      const res = await bookingApi.generateArrivalOtp(booking._id);
-      setBooking(res.data ?? null);
-      setShowArrivalModal(true);
-      toast.success("Arrival marked. Customer can see the OTP now.");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to mark arrival");
-    } finally {
-      setIsSubmitting(false);
+      const res = await generateArrivalOtp(booking._id);
+      if (res) {
+        setShowArrivalModal(true);
+        const detail = await getBookingDetail(booking._id);
+        setBooking(detail);
+        toast.success("Arrival marked. Customer can see the OTP now.");
+      }
+    } catch {
     }
   };
 
   const handleVerifyArrivalOtp = async () => {
     if (!booking) return;
     try {
-      setIsSubmitting(true);
-      const res = await bookingApi.verifyArrivalOtp(booking._id, arrivalOtp);
-      setBooking(res.data ?? null);
-      setShowArrivalModal(false);
-      setArrivalOtp("");
-      toast.success("Arrival verified. Job is now in progress.");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Invalid OTP");
-    } finally {
-      setIsSubmitting(false);
+      const res = await verifyArrivalOtp(booking._id, arrivalOtp);
+      if (res) {
+        setShowArrivalModal(false);
+        setArrivalOtp("");
+        const detail = await getBookingDetail(booking._id);
+        setBooking(detail);
+      }
+    } catch {
     }
   };
 
   const handleGenerateCompletionOtp = async () => {
     if (!booking) return;
     try {
-      setIsSubmitting(true);
-      const res = await bookingApi.generateCompletionOtp(booking._id, {
+      const res = await generateCompletionOtp(booking._id, {
         baseCharge: Number(invoiceBaseCharge),
         extraCharges: extraCharges.map(c => ({ description: c.description, amount: Number(c.amount) }))
       });
-      setBooking(res.data ?? null);
-      setShowInvoiceModal(false);
-      setShowCompletionModal(true);
-      toast.success("Invoice saved. Customer can see the Completion OTP.");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to generate OTP");
-    } finally {
-      setIsSubmitting(false);
+      if (res) {
+        setShowInvoiceModal(false);
+        setShowCompletionModal(true);
+        const detail = await getBookingDetail(booking._id);
+        setBooking(detail);
+        toast.success("Invoice saved. Customer can see the Completion OTP.");
+      }
+    } catch {
     }
   };
 
   const handleVerifyCompletionOtp = async () => {
     if (!booking) return;
     try {
-      setIsSubmitting(true);
-      const res = await bookingApi.verifyCompletionOtp(booking._id, completionOtp);
-      setBooking(res.data ?? null);
-      setShowCompletionModal(false);
-      setCompletionOtp("");
-      toast.success("Job completed successfully! Pending payment.");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Invalid OTP");
-    } finally {
-      setIsSubmitting(false);
+      const res = await verifyCompletionOtp(booking._id, completionOtp);
+      if (res) {
+        setShowCompletionModal(false);
+        setCompletionOtp("");
+        const detail = await getBookingDetail(booking._id);
+        setBooking(detail);
+      }
+    } catch {
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!booking || !rescheduleDate || !rescheduleSlot) return;
+    try {
+      const res = await providerRescheduleBooking(booking._id, {
+        date: rescheduleDate,
+        slot: rescheduleSlot
+      });
+      if (res) {
+        setShowRescheduleModal(false);
+        setRescheduleDate("");
+        setRescheduleSlot(null);
+        navigate(`/provider/bookings/${res._id}`);
+      }
+    } catch {
     }
   };
 
@@ -237,21 +282,15 @@ const ProviderBookingDetail: React.FC = () => {
       return;
     }
     setReasonError("");
-    setIsSubmitting(true);
     try {
-      const res = await bookingApi.cancelBooking(booking._id, reason);
-      setBooking(res.data ?? null);
-      toast.success(
-        booking.status === "pending"
-          ? "Booking declined successfully."
-          : "Appointment cancelled successfully."
-      );
-      setShowReasonBox(false);
-      setReason("");
+      const res = await cancelBooking(booking._id, reason);
+      if (res) {
+        setShowReasonBox(false);
+        setReason("");
+        const detail = await getBookingDetail(booking._id);
+        setBooking(detail);
+      }
     } catch {
-      toast.error("Failed to process request.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -306,6 +345,7 @@ const ProviderBookingDetail: React.FC = () => {
   const isPendingPayment = booking.status === "completed_pending_payment";
   const isCompleted = booking.status === "completed";
   const isCancelled = booking.status === "cancelled" || booking.status === "rescheduled";
+  const isAwaitingConfirmation = booking.status === "awaiting_user_confirmation";
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-500 pb-32">
@@ -555,6 +595,18 @@ const ProviderBookingDetail: React.FC = () => {
               </div>
             )}
 
+            {/* AWAITING USER CONFIRMATION state */}
+            {isAwaitingConfirmation && (
+              <div className="w-full bg-purple-50 border border-purple-100 rounded-2xl p-5 text-center">
+                <p className="text-sm font-bold text-purple-700 flex items-center justify-center gap-2">
+                  <Calendar size={18} /> Reschedule Proposed
+                </p>
+                <p className="text-xs text-purple-600/80 font-medium mt-1">
+                  Waiting for the customer to accept the rescheduled time.
+                </p>
+              </div>
+            )}
+
             {/* PENDING + reason box shown */}
             {isPending && showReasonBox && (
               <>
@@ -601,6 +653,12 @@ const ProviderBookingDetail: React.FC = () => {
                   className="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 transition-all border border-red-100"
                 >
                   <Trash2 size={15} /> Cancel Appointment
+                </button>
+                <button
+                  onClick={() => setShowRescheduleModal(true)}
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 transition-all border border-purple-100"
+                >
+                  <Calendar size={15} /> Reschedule
                 </button>
                 <button
                   onClick={handleChat}
@@ -815,6 +873,105 @@ const ProviderBookingDetail: React.FC = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {showRescheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-xl space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <h3 className="text-xl font-black text-slate-900">Reschedule Booking</h3>
+              <button onClick={() => setShowRescheduleModal(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-5">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Select New Date</label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => {
+                    setRescheduleDate(e.target.value);
+                    setRescheduleSlot(null);
+                  }}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                />
+              </div>
+
+              {rescheduleDate && (
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Available Slots</label>
+                  {isLoadingSlots ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 size={24} className="animate-spin text-blue-600" />
+                    </div>
+                  ) : slots.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2">
+                      {slots.map(slot => {
+                        const isSelected = rescheduleSlot?.start === slot.start;
+                        return (
+                          <button
+                            key={slot.id}
+                            disabled={slot.isBooked}
+                            onClick={() => setRescheduleSlot({ start: slot.start, end: slot.end })}
+                            className={`p-3 rounded-xl border text-xs font-bold transition-all ${
+                              slot.isBooked
+                                ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
+                                : isSelected
+                                ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100"
+                                : "bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50"
+                            }`}
+                          >
+                            {slot.start} - {slot.end}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-6 text-center text-sm font-semibold text-slate-500">
+                      No slots available for this date.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={handleReschedule} 
+              disabled={isSubmitting || !rescheduleDate || !rescheduleSlot}
+              className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm rounded-xl disabled:opacity-50 transition-all flex justify-center items-center gap-2"
+            >
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
+              Confirm Reschedule
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Report Issue button */}
+      <div className="bg-orange-50 border border-orange-100 rounded-[32px] p-6 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+        <div>
+          <h3 className="text-sm font-black text-slate-900">Report Customer</h3>
+          <p className="text-xs font-semibold text-slate-500">Report this customer if there was inappropriate behavior or fraud.</p>
+        </div>
+        <button
+          onClick={() => setIsReportModalOpen(true)}
+          className="w-full sm:w-auto bg-orange-100 hover:bg-orange-200 text-orange-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+        >
+          <Flag size={15} /> Report Issue
+        </button>
+      </div>
+
+      {booking && customer && (
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          reportedId={customer._id}
+          bookingId={booking._id}
+          reportedName={customer.name}
+        />
       )}
     </div>
   );

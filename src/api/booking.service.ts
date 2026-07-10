@@ -19,11 +19,12 @@ export interface Booking {
     start: string;
     end: string;
   };
-  status: "pending" | "awaiting_payment" | "confirmed" | "in_progress" | "completed_pending_payment" | "completed" | "cancelled" | "rescheduled";
+  status: "pending" | "awaiting_payment" | "confirmed" | "in_progress" | "completed_pending_payment" | "completed" | "cancelled" | "rescheduled" | "awaiting_user_confirmation";
   notes?: string;
   cancelledBy?: "user" | "provider";
   cancellationReason?: string;
   rescheduledFrom?: string;
+  rescheduledTo?: string;
   totalAmount?: number;
   paymentStatus?: "pending" | "paid" | "failed";
   stripeSessionId?: string;
@@ -79,6 +80,20 @@ export const bookingApi = {
     notes?: string;
   }) =>
     axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/reschedule`, data),
+
+  providerRescheduleBooking: (id: string, data: {
+    date: string;
+    slot: { start: string; end: string };
+    addressId?: string;
+    notes?: string;
+  }) =>
+    axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/provider-reschedule`, data),
+
+  acceptReschedule: (id: string) =>
+    axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/reschedule/accept`),
+
+  rejectReschedule: (id: string) =>
+    axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/reschedule/reject`),
 
   acceptBooking: (id: string) =>
     axiosInstance.patch<unknown, ApiResponse<Booking>>(`/bookings/${id}/accept`),

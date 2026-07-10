@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { dashboardApi } from "../../api/dashboard.service";
+import { useDashboard } from "../../hooks/useDashboard";
 import { 
   BarChart3, 
   CheckCircle2, 
@@ -9,27 +9,14 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
-import toast from "react-hot-toast";
 
 const ProviderDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, fetchProviderDashboard } = useDashboard();
 
   useEffect(() => {
-    fetchDashboard();
+    fetchProviderDashboard();
   }, []);
-
-  const fetchDashboard = async () => {
-    try {
-      const res = await dashboardApi.getProviderDashboard();
-      setData(res.data);
-    } catch (err) {
-      toast.error("Failed to load dashboard data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading || !data) {
     return (

@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
-  MapPin, Star, Check, Phone, Mail, Award, ArrowLeft, ShieldCheck, Briefcase, MessageCircle, Loader2, Heart
+  MapPin, Star, Check, Phone, Mail, Award, ArrowLeft, ShieldCheck, Briefcase, MessageCircle, Loader2, Heart, Flag
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Provider } from "../../types/provider.types";
 import { getSimulated } from "../../types/provider.types";
-import { chatApi } from "../../api/chat.service";
-import { reviewService } from "../../api/review.service";
+import { useChat } from "../../hooks/useChat";
+import { useProviderProfile } from "../../hooks/useProviderProfile";
 import type { Review } from "../../types/provider.types";
 import toast from "react-hot-toast";
+import ReportModal from "../../components/shared/ReportModal";
 
 interface ProviderProfileDetailProps {
   provider: Provider;
@@ -37,15 +38,19 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
 }) => {
   const navigate = useNavigate();
   const sim = getSimulated(provider, userCoords);
+  const { loadReviews, reviews: fetchedReviews } = useProviderProfile();
+  const { getOrCreateDirectConversation } = useChat();
+
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const res = await reviewService.getProviderReviews(provider._id);
-        setReviews(res.data?.reviews || []);
+        const data = await loadReviews(provider._id);
+        setReviews(data?.reviews || []);
       } catch (error) {
         console.error("Failed to load reviews", error);
       } finally {
@@ -59,13 +64,11 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
     if (isChatLoading) return;  
     setIsChatLoading(true);
     try {
-      const res = await chatApi.getOrCreateDirectConversation(provider.userId._id);
-      const conversation = res.data;
+      const conversation = await getOrCreateDirectConversation(provider.userId._id);
       if (conversation?._id) {
         navigate(`/user/messages?conversationId=${conversation._id}`);
       }
     } catch {
-      toast.error("Could not start a conversation. Please try again.");
     } finally {
       setIsChatLoading(false);
     }
@@ -136,10 +139,10 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rating</p>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xl font-black text-slate-900">{provider.averageRating || 0}</span>
+                    <span className="text-xl font-black text-slate-900">{provider.averageRating ? provider.averageRating.toFixed(1) : sim.rating}</span>
                     <Star size={16} className="fill-amber-400 text-amber-400" />
                   </div>
-                  <p className="text-[10px] text-slate-400 font-bold">({provider.totalReviews || 0})</p>
+                  <p className="text-[10px] text-slate-400 font-bold">({provider.totalReviews || sim.reviewCount})</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Hourly Rate</p>
@@ -191,12 +194,12 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
         {/* ── About ── */}
         <div className="space-y-4">
           <h2 className="text-lg font-black text-slate-900">
-            About {provider.userId.name.split(" ")[0]}
+            About {provider.userId?.name?.split(" ")[0] || "Provider"}
           </h2>
           <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-8 space-y-5">
             <p className="text-sm font-medium text-slate-600 leading-relaxed">
               {provider.bio ||
-                `${provider.userId.name} is a verified service professional specializing in ${provider.serviceId?.name || "home services"}. Committed to delivering top-quality work with a focus on efficiency, reliability, and clear communication.`}
+                `${provider.userId?.name || "This provider"} is a verified service professional specializing in ${provider.serviceId?.name || "home services"}. Committed to delivering top-quality work with a focus on efficiency, reliability, and clear communication.`}
             </p>
             {provider.serviceId?.description && (
               <p className="text-sm font-medium text-slate-500 leading-relaxed border-t border-slate-50 pt-5">
@@ -333,7 +336,27 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
             )}
           </div>
         </div>
+        {/* ── Report Issue ── */}
+        <div className="bg-orange-50 border border-orange-100 rounded-[28px] p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-black text-slate-900">Report Provider</h3>
+            <p className="text-xs font-semibold text-slate-500">Report this provider if there is inappropriate behavior, fake profile, or fraud.</p>
+          </div>
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="w-full sm:w-auto bg-orange-100 hover:bg-orange-200 text-orange-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shrink-0"
+          >
+            <Flag size={15} /> Report Issue
+          </button>
+        </div>
       </div>
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        reportedId={provider.userId._id}
+        reportedName={provider.userId.name}
+      />
     </div>
   );
 };

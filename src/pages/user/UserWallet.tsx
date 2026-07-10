@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Wallet, ArrowDownRight, ArrowUpRight, History } from "lucide-react";
-import { walletApi } from "../../api/wallet.service";
-import toast from "react-hot-toast";
+import { useWallet } from "../../hooks/useWallet";
 
 interface ITransaction {
   _id: string;
@@ -23,23 +22,12 @@ interface WalletData {
 }
 
 const UserWallet: React.FC = () => {
-  const [data, setData] = useState<WalletData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { wallet, transactions, loading, fetchWalletData } = useWallet();
+  const data = wallet && transactions ? { wallet, transactions } : null;
 
   useEffect(() => {
-    fetchWallet();
+    fetchWalletData();
   }, []);
-
-  const fetchWallet = async () => {
-    try {
-      const res = await walletApi.getWalletData();
-      setData(res.data);
-    } catch (err) {
-      toast.error("Failed to load wallet data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading || !data) {
     return (

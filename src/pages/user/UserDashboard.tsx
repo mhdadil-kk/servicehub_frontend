@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { 
   Calendar, 
@@ -7,28 +7,15 @@ import {
   Wallet,
   Loader2
 } from "lucide-react";
-import { dashboardApi } from "../../api/dashboard.service";
-import toast from "react-hot-toast";
+import { useDashboard } from "../../hooks/useDashboard";
 
 const UserDashboard: React.FC = () => {
   const { user } = useAuthStore();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, fetchUserDashboard } = useDashboard();
 
   useEffect(() => {
-    fetchDashboard();
+    fetchUserDashboard();
   }, []);
-
-  const fetchDashboard = async () => {
-    try {
-      const res = await dashboardApi.getUserDashboard();
-      setData(res.data);
-    } catch (err) {
-      toast.error("Failed to load dashboard data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading || !data) {
     return (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { adminService } from '../../api/admin.service';
+import { useAdmin } from '../../hooks/useAdmin';
 import toast from 'react-hot-toast';
 import { 
   User, Mail, Phone, MapPin, ShieldCheck, 
@@ -25,6 +25,7 @@ L.Icon.Default.mergeOptions({
 const AdminProviderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { fetchProviderDetail, verifyProvider } = useAdmin();
   const [provider, setProvider] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -32,21 +33,18 @@ const AdminProviderDetail: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState("");
 
   useEffect(() => {
-    fetchProviderDetails();
+    const loadData = async () => {
+      try {
+        const data = await fetchProviderDetail(id!);
+        setProvider(data?.provider || data);
+      } catch (err) {
+        navigate('/admin/providers');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [id]);
-
-  const fetchProviderDetails = async () => {
-    try {
-      const res = await adminService.getProviderDetail(id!);
-      setProvider(res.data);
-    } catch (error: unknown) {
-      const err = error as any;
-      toast.error("Failed to fetch details");
-      navigate('/admin/providers');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleVerify = async (status: 'approved' | 'rejected') => {
     if (status === 'rejected' && !rejectionReason) {
@@ -56,13 +54,12 @@ const AdminProviderDetail: React.FC = () => {
 
     setIsVerifying(true);
     try {
-      await adminService.verifyProvider(id!, status, rejectionReason);
-      toast.success(`Provider ${status} successfully`);
-      fetchProviderDetails();
-      setShowRejectModal(false);
-    } catch (error: unknown) {
-      const err = error as any;
-      toast.error(error.message || "Action failed");
+      const success = await verifyProvider(id!, status, rejectionReason);
+      if (success) {
+        const data = await fetchProviderDetail(id!);
+        setProvider(data?.provider || data);
+        setShowRejectModal(false);
+      }
     } finally {
       setIsVerifying(false);
     }

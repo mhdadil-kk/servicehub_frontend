@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { ArrowDownRight, ArrowUpRight, History, CreditCard, Wallet } from "lucide-react";
-import { walletApi } from "../../api/wallet.service";
+import { useWallet } from "../../hooks/useWallet";
 import toast from "react-hot-toast";
 
 interface ITransaction {
@@ -23,23 +23,12 @@ interface WalletData {
 }
 
 const ProviderWallet: React.FC = () => {
-  const [data, setData] = useState<WalletData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { wallet, transactions, loading, fetchWalletData } = useWallet();
+  const data = wallet && transactions ? { wallet, transactions } : null;
 
   useEffect(() => {
-    fetchWallet();
+    fetchWalletData();
   }, []);
-
-  const fetchWallet = async () => {
-    try {
-      const res = await walletApi.getWalletData();
-      setData(res.data);
-    } catch (err) {
-      toast.error("Failed to load wallet data");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleWithdraw = () => {
     toast.success("Withdrawal request submitted successfully!");
@@ -53,12 +42,10 @@ const ProviderWallet: React.FC = () => {
     );
   }
 
-  // Only show successful transactions
   const successTransactions = data.transactions.filter(
     (t) => t.status === "success"
   );
 
-  // Total Earned = sum of successful credit transactions
   const totalEarned = successTransactions
     .filter((t) => t.type === "credit")
     .reduce((acc, t) => acc + t.amount, 0);

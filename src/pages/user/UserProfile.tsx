@@ -11,11 +11,12 @@ import {
   Camera,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { authService } from "../../api/auth.service";
+import { useAuth } from "../../hooks/useAuth";
 import { ChangePasswordModal } from "../../components/ChangePasswordModal";
 
 const UserProfile: React.FC = () => {
   const { user, setUser } = useAuthStore();
+  const { updateProfile } = useAuth();
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [loading, setLoading] = useState(false);
@@ -37,12 +38,10 @@ const UserProfile: React.FC = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      const response = await authService.updateProfile({ name, phone });
-      setUser(response.data.user);
+      await updateProfile({ name, phone });
       toast.success("Profile updated successfully!");
-    } catch (error: unknown) {
-      const err = error as any;
-      toast.error(err.response?.data?.message || "Failed to update profile");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update profile");
     } finally {
       setLoading(false);
     }

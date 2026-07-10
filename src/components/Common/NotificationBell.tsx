@@ -1,29 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bell, CheckCircle2, ShieldAlert, Info, MessageSquare, AlertCircle } from "lucide-react";
-import { notificationApi } from "../../api/notification.service";
 import type { AppNotification } from "../../api/notification.service";
+import { useNotifications } from "../../hooks/useNotifications";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 
 export const NotificationBell: React.FC = () => {
   const { user } = useAuthStore();
-  const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const fetchNotifications = async () => {
-    if (!user) return;
-    try {
-      const res = await notificationApi.getNotifications();
-      const payload = (res as any)?.data?.data ?? (res as any)?.data ?? {};
-      setNotifications(payload.notifications || []);
-      setUnreadCount(payload.unreadCount || 0);
-    } catch (err) {
-      console.error("Failed to fetch notifications", err);
-    }
-  };
 
   useEffect(() => {
     fetchNotifications();
@@ -44,9 +30,7 @@ export const NotificationBell: React.FC = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationApi.markAllAsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
+      await markAllAsRead();
     } catch (err) {
       console.error("Failed to mark all as read", err);
     }
@@ -55,9 +39,7 @@ export const NotificationBell: React.FC = () => {
   const handleNotificationClick = async (notification: AppNotification) => {
     if (!notification.isRead) {
       try {
-        await notificationApi.markAsRead(notification._id);
-        setNotifications(prev => prev.map(n => n._id === notification._id ? { ...n, isRead: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        await markAsRead(notification._id);
       } catch (e) {}
     }
     setIsOpen(false);

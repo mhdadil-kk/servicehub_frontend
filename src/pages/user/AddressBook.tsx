@@ -12,14 +12,22 @@ import {
   X
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { addressApi } from "../../api/address.service";
+import { useAddressBook } from "../../hooks/useAddressBook";
 import type { Address } from "../../api/address.service";
+import { geocodingService } from "../../utils/geocoding";
 
 const AddressBook: React.FC = () => {
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    addresses,
+    loading: isLoading,
+    isSubmitting,
+    fetchAddresses,
+    createAddress,
+    updateAddress,
+    deleteAddress,
+    setDefaultAddress,
+  } = useAddressBook();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   const [editId, setEditId] = useState<string | null>(null);
@@ -34,18 +42,6 @@ const AddressBook: React.FC = () => {
   useEffect(() => {
     fetchAddresses();
   }, []);
-
-  const fetchAddresses = async () => {
-    try {
-      setIsLoading(true);
-      const res = await addressApi.getAddresses();
-      setAddresses(res.data || []);
-    } catch (error) {
-      toast.error("Failed to load addresses.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleOpenAddModal = () => {
     setEditId(null);
@@ -80,10 +76,7 @@ const AddressBook: React.FC = () => {
     if (!fullAddress || fullAddress.trim().length < 5) return;
     try {
       setIsGeocoding(true);
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`
-      );
-      const data = await res.json();
+      const data = await geocodingService.searchAddress(fullAddress);
       if (data && data.length > 0) {
         setLatitude(parseFloat(data[0].lat));
         setLongitude(parseFloat(data[0].lon));
@@ -108,10 +101,7 @@ const AddressBook: React.FC = () => {
         setLatitude(lat);
         setLongitude(lon);
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
-          );
-          const data = await res.json();
+          const data = await geocodingService.reverseGeocode(lat, lon);
           if (data && data.display_name) {
             setFullAddress(data.display_name);
           }
@@ -146,7 +136,6 @@ const AddressBook: React.FC = () => {
       return;
     }
 
-    setIsSubmitting(true);
     try {
       const payload = {
         label: finalLabel,
@@ -157,51 +146,35 @@ const AddressBook: React.FC = () => {
       };
 
       if (editId) {
-        await addressApi.updateAddress(editId, payload);
-        toast.success("Address updated successfully!");
+        await updateAddress(editId, payload);
       } else {
-        await addressApi.createAddress(payload);
-        toast.success("Address added successfully!");
+        await createAddress(payload);
       }
       setIsModalOpen(false);
-      fetchAddresses();
     } catch (error: unknown) {
-      const err = error as any;
-      toast.error(err.response?.data?.message || "Failed to save address.");
-    } finally {
-      setIsSubmitting(false);
+      console.error(error);
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this address?")) return;
-    try {
-      await addressApi.deleteAddress(id);
-      toast.success("Address deleted successfully.");
-      fetchAddresses();
-    } catch (error) {
-      toast.error("Failed to delete address.");
-    }
-  };
-
-  const handleSetDefault = async (id: string) => {
-    try {
-      await addressApi.setDefaultAddress(id);
-      toast.success("Default address updated.");
-      fetchAddresses();
-    } catch (error) {
-      toast.error("Failed to update default address.");
-    }
-  };
-
-  const getLabelIcon = (lbl: string) => {
-    switch (lbl) {
+  const getLabelIcon = (label: string) => {
+    switch (label) {
       case "Home": return <Home size={18} className="text-blue-600" />;
       case "Work": return <Briefcase size={18} className="text-orange-600" />;
       default: return <MapPin size={18} className="text-emerald-600" />;
     }
   };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this address?")) {
+      await deleteAddress(id);
+    }
+  };
+
+  const handleSetDefault = async (id: string) => {
+    await setDefaultAddress(id);
+  };
+
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-32">

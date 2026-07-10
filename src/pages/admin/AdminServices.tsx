@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { adminService } from "../../api/admin.service";
 import { 
   Plus, 
   Trash2, 
@@ -7,22 +6,11 @@ import {
   X,
   Activity
 } from "lucide-react";
-import toast from "react-hot-toast";
-import Swal from "sweetalert2";
 import { validateRequired } from "../../utils/validation";
-
-interface ServiceCategory {
-  _id: string;
-  name: string;
-  description: string;
-  icon: string;
-  basePrice: number;
-  isActive: boolean;
-}
+import { useAdmin } from "../../hooks/useAdmin";
 
 const AdminServices: React.FC = () => {
-  const [services, setServices] = useState<ServiceCategory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { services, loading, fetchAdminServices, addService, deleteService } = useAdmin();
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -31,21 +19,8 @@ const AdminServices: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    fetchServices();
+    fetchAdminServices();
   }, []);
-
-  const fetchServices = async () => {
-    try {
-      const response = await adminService.getServices();
-      setServices(response.data || []);
-    } catch (error: unknown) {
-      const err = error as any;
-      toast.error(error.message || "Failed to fetch services");
-      setServices([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,38 +39,17 @@ const AdminServices: React.FC = () => {
     
     try {
       setErrors({});
-      const response = await adminService.addService(form);
-      toast.success("Service category added successfully");
-      setServices([...(services || []), response.data]);
-      setShowModal(false);
-      setForm({ name: "", description: "" });
+      const success = await addService(form);
+      if (success) {
+        setShowModal(false);
+        setForm({ name: "", description: "" });
+      }
     } catch (error: unknown) {
-      const err = error as any;
-      toast.error(error.message || "Failed to add service");
     }
   };
 
   const handleDelete = async (id: string) => {
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "You won't be able to revert this!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, delete it!"
-    });
-
-    if (result.isConfirmed) {
-      try {
-        await adminService.deleteService(id);
-        setServices((services || []).filter(s => s && s._id !== id));
-        toast.success("Service deleted");
-      } catch (error: unknown) {
-      const err = error as any;
-        toast.error(error.message || "Failed to delete service");
-      }
-    }
+    await deleteService(id);
   };
 
   return (

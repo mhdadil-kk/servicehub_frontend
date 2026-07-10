@@ -1,18 +1,38 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import StatsCard from "../../components/Admin/StatsCard";
-import { Users, Briefcase, CalendarCheck, Wallet, ArrowUpRight } from "lucide-react";
-
-/**
- * MOCK DATA FOR DEMO PURPOSES
- */
-const USER_GROWTH_DATA = [
-  { month: "Jan", value: 30 }, { month: "Feb", value: 45 }, { month: "Mar", value: 55 },
-  { month: "Apr", value: 40 }, { month: "May", value: 70 }, { month: "Jun", value: 65 },
-  { month: "Jul", value: 85 }, { month: "Aug", value: 80 }, { month: "Sep", value: 95 },
-  { month: "Oct", value: 110 }, { month: "Nov", value: 125 }, { month: "Dec", value: 120 },
-];
+import { Users, Briefcase, CalendarCheck, Wallet, ArrowUpRight, Loader2, AlertCircle } from "lucide-react";
+import { adminService } from "../../api/admin.service";
+import toast from "react-hot-toast";
 
 const AdminDashboard: React.FC = () => {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<"all" | "year" | "month">("all");
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await adminService.getDashboardStats(timeRange);
+        setStats(res.data);
+      } catch (err: any) {
+        console.error(err);
+        toast.error("Failed to load dashboard stats");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, [timeRange]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600" size={40} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
       {/* HEADER SECTION */}
@@ -22,10 +42,15 @@ const AdminDashboard: React.FC = () => {
           <p className="text-slate-500 font-medium mt-1 italic">Overview of your service ecosystem performance.</p>
         </div>
         <div className="flex gap-3">
-           <div className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-bold text-slate-600 flex items-center gap-2 shadow-sm cursor-pointer hover:bg-slate-50 transition-all">
-              <span>Last 30 Days</span>
-              <ArrowUpRight size={14} className="text-slate-400" />
-           </div>
+           <select 
+             value={timeRange} 
+             onChange={(e) => setTimeRange(e.target.value as "all" | "year" | "month")}
+             className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-bold text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50 transition-all outline-none focus:ring-2 focus:ring-blue-500"
+           >
+             <option value="all">All Time</option>
+             <option value="year">This Year</option>
+             <option value="month">This Month</option>
+           </select>
            <button className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-bold shadow-sm shadow-blue-200 hover:bg-blue-700 transition-all flex items-center gap-2">
               <ArrowUpRight size={16} />
               <span>Export Report</span>
@@ -35,10 +60,10 @@ const AdminDashboard: React.FC = () => {
 
       {/* STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard label="Total Users" value="12,450" icon={Users} trend="12%" trendType="up" />
-        <StatsCard label="Total Providers" value="1,840" icon={Briefcase} trend="5%" trendType="up" />
-        <StatsCard label="Total Bookings" value="45,200" icon={CalendarCheck} trend="8%" trendType="up" />
-        <StatsCard label="Total Revenue" value="₹1,25,00,000" icon={Wallet} trend="15%" trendType="up" />
+        <StatsCard label="Total Customers" value={stats?.totalUsers?.toString() || "0"} icon={Users} />
+        <StatsCard label="Total Providers" value={stats?.totalProviders?.toString() || "0"} icon={Briefcase} />
+        <StatsCard label="Total Bookings" value={stats?.totalBookings?.toString() || "0"} icon={CalendarCheck} />
+        <StatsCard label="Total Revenue" value={`₹${stats?.totalRevenue?.toLocaleString() || "0"}`} icon={Wallet} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -62,19 +87,23 @@ const AdminDashboard: React.FC = () => {
           </div>
           
           <div className="flex-1 flex items-end justify-between gap-3 pt-4">
-            {USER_GROWTH_DATA.map((item, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-3">
-                <div 
-                  className="w-full bg-blue-500 rounded-t-md relative group transition-all duration-700 ease-out hover:bg-blue-600"
-                  style={{ height: `${item.value}%` }}
-                >
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.value * 123}
+            {(stats?.userGrowth || []).map((item: any, idx: number) => {
+              const maxVal = Math.max(...(stats?.userGrowth || []).map((d: any) => d.value), 1);
+              const heightPct = Math.max((item.value / maxVal) * 100, 5);
+              return (
+                <div key={idx} className="flex-1 flex flex-col items-center gap-3">
+                  <div 
+                    className="w-full bg-blue-500 rounded-t-md relative group transition-all duration-700 ease-out hover:bg-blue-600"
+                    style={{ height: `${heightPct}%` }}
+                  >
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                      {item.value}
+                    </div>
                   </div>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase">{item.month}</span>
                 </div>
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase">{item.month}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -82,33 +111,33 @@ const AdminDashboard: React.FC = () => {
         <div className="card-premium p-8 flex flex-col">
           <h3 className="text-lg font-extrabold text-slate-900 mb-6">Booking Trends by Category</h3>
           <div className="space-y-7 overflow-auto pr-2">
-            {[
-              { label: "Cleaning", val: 12400, color: "bg-blue-600" },
-              { label: "Plumbing", val: 8200, color: "bg-blue-500" },
-              { label: "Electrical", val: 6150, color: "bg-blue-400" },
-              { label: "HVAC", val: 4900, color: "bg-blue-300" },
-              { label: "Painting", val: 3200, color: "bg-blue-200" },
-            ].map((item, i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider">
-                  <span className="text-slate-500">{item.label}</span>
-                  <span className="text-slate-900">{item.val.toLocaleString()}</span>
+            {(stats?.bookingTrends || []).map((item: any, i: number) => {
+              const maxVal = Math.max(...(stats?.bookingTrends || []).map((d: any) => d.val), 1);
+              return (
+                <div key={i} className="space-y-2">
+                  <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider">
+                    <span className="text-slate-500">{item.label}</span>
+                    <span className="text-slate-900">{item.val.toLocaleString()}</span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                     <div 
+                      className={`${item.color} h-full rounded-full transition-all duration-1000 ease-in-out`} 
+                      style={{ width: `${(item.val / maxVal) * 100}%` }}
+                     ></div>
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                   <div 
-                    className={`${item.color} h-full rounded-full transition-all duration-1000 ease-in-out`} 
-                    style={{ width: `${(item.val / 12400) * 100}%` }}
-                   ></div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
+            {(!stats?.bookingTrends || stats.bookingTrends.length === 0) && (
+              <div className="text-sm text-slate-500 italic text-center py-8">No booking data available for this period.</div>
+            )}
           </div>
           
           <div className="mt-10 pt-8 border-t border-slate-100 flex-1 flex flex-col justify-center items-center text-center">
              <div className="w-24 h-24 rounded-full border-[10px] border-slate-100 border-t-blue-600 border-r-blue-500 flex items-center justify-center relative">
-                <span className="text-xs font-black text-slate-900 leading-tight">₹1.25Cr<br/><span className="text-[8px] text-slate-400 font-bold uppercase">TOTAL YTD</span></span>
+                <span className="text-xs font-black text-slate-900 leading-tight">₹{stats?.totalRevenue?.toLocaleString() || "0"}<br/><span className="text-[8px] text-slate-400 font-bold uppercase">TOTAL</span></span>
              </div>
-             <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest leading-relaxed">Revenue Breakdown<br/>Monthly Analysis</p>
+             <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-widest leading-relaxed">Revenue Breakdown<br/>{timeRange === 'all' ? 'All Time' : timeRange === 'year' ? 'This Year' : 'This Month'} Analysis</p>
           </div>
         </div>
       </div>

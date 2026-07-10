@@ -10,10 +10,12 @@ import {
   CheckCircle2,
   X,
   FileText,
-  Star
+  Star,
+  Flag
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { ReviewModal } from "../../components/ReviewModal";
+import ReportModal from "../../components/shared/ReportModal";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -73,6 +75,7 @@ const UserBookingDetail: React.FC = () => {
 
 
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -134,6 +137,34 @@ const UserBookingDetail: React.FC = () => {
     }
   };
 
+  const handleAcceptReschedule = async () => {
+    if (!booking) return;
+    setIsSubmitting(true);
+    try {
+      const res = await bookingApi.acceptReschedule(booking._id);
+      setBooking(res.data ?? null);
+      toast.success("Rescheduled time accepted!");
+    } catch {
+      toast.error("Failed to accept rescheduled time.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRejectReschedule = async () => {
+    if (!booking) return;
+    setIsSubmitting(true);
+    try {
+      const res = await bookingApi.rejectReschedule(booking._id);
+      setBooking(res.data ?? null);
+      toast.success("Rescheduled time rejected. Booking cancelled.");
+    } catch {
+      toast.error("Failed to reject rescheduled time.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -175,7 +206,9 @@ const UserBookingDetail: React.FC = () => {
   const isInProgress = booking.status === "in_progress";
   const isPendingPayment = booking.status === "completed_pending_payment";
   const isCompleted = booking.status === "completed";
-  const isCancelled = booking.status === "cancelled" || booking.status === "rescheduled";
+  const isProviderRescheduled = booking.status === "cancelled" && booking.cancellationReason === "Rescheduled by provider";
+  const isCancelled = (booking.status === "cancelled" || booking.status === "rescheduled") && !isProviderRescheduled;
+  const isAwaitingConfirmation = booking.status === "awaiting_user_confirmation";
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-500 pb-32">
@@ -198,16 +231,19 @@ const UserBookingDetail: React.FC = () => {
               </span>
               <span className="w-1 h-1 rounded-full bg-slate-300" />
               <span
-                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${isConfirmed ? "bg-blue-100 text-blue-600" :
-                    isInProgress ? "bg-purple-100 text-purple-600" :
-                      isPendingPayment ? "bg-indigo-100 text-indigo-600" :
-                        isAwaitingPayment ? "bg-indigo-100 text-indigo-600" :
-                          isCompleted ? "bg-emerald-100 text-emerald-600" :
-                            isCancelled ? "bg-rose-100 text-rose-600" :
-                              "bg-amber-100 text-amber-600"
-                  }`}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${
+                  isConfirmed ? "bg-blue-100 text-blue-600" :
+                  isInProgress ? "bg-purple-100 text-purple-600" :
+                  isPendingPayment ? "bg-indigo-100 text-indigo-600" :
+                  isAwaitingPayment ? "bg-indigo-100 text-indigo-600" :
+                  isAwaitingConfirmation ? "bg-purple-100 text-purple-700" :
+                  isProviderRescheduled ? "bg-purple-100 text-purple-700" :
+                  isCompleted ? "bg-emerald-100 text-emerald-600" :
+                  isCancelled ? "bg-rose-100 text-rose-600" :
+                  "bg-amber-100 text-amber-600"
+                }`}
               >
-                {booking.status.replace(/_/g, " ")}
+                {isProviderRescheduled ? "Rescheduled by Provider" : booking.status.replace(/_/g, " ")}
               </span>
             </div>
           </div>
@@ -237,6 +273,31 @@ const UserBookingDetail: React.FC = () => {
           <MessageSquare size={15} /> Message
         </button>
       </div>
+
+      {/* ── Provider Reschedule Banner ────────────────────────────────── */}
+      {isProviderRescheduled && (
+        <div className="bg-purple-50 border border-purple-200 rounded-[24px] p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
+              <Calendar size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-purple-900">Provider Proposed a New Time</h3>
+              <p className="text-xs font-semibold text-purple-700 mt-0.5 leading-relaxed">
+                Your provider has rescheduled this booking to a new date and time slot. Please view the new booking to accept or reject it.
+              </p>
+            </div>
+          </div>
+          {booking.rescheduledTo && (
+            <button
+              onClick={() => navigate(`/user/bookings/${booking.rescheduledTo}`)}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-6 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-purple-100"
+            >
+              <Calendar size={15} /> View New Booking Proposal
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Invoice details (For completed bookings) ── */}
       {(isCompleted || isPendingPayment) && booking.finalInvoice && (
@@ -328,7 +389,7 @@ const UserBookingDetail: React.FC = () => {
       </Section>
 
       {/* ── Actions ──────────────────────────────────────────────────────── */}
-      {!isCancelled && (
+      {!isCancelled && !isProviderRescheduled && (
         <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-6 sm:p-8 space-y-5">
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Actions</p>
 
@@ -419,6 +480,35 @@ const UserBookingDetail: React.FC = () => {
               </div>
             )}
 
+            {isAwaitingConfirmation && (
+              <div className="w-full flex flex-col gap-4">
+                <div className="bg-purple-50 border border-purple-100 rounded-2xl p-5 space-y-3 w-full">
+                  <h4 className="text-sm font-black text-purple-900 mb-1 flex items-center gap-2">
+                    <Calendar size={18} /> Reschedule Proposed
+                  </h4>
+                  <p className="text-xs text-purple-700 font-medium">Your provider has proposed this new date/time for the booking. Please accept or reject it.</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAcceptReschedule}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-purple-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+                    Accept New Time
+                  </button>
+                  <button
+                    onClick={handleRejectReschedule}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-sm px-6 py-4 rounded-2xl border border-red-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+                    Reject & Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             {(isPending || isAwaitingPayment || isConfirmed) && !showCancelBox && (
               <button
                 onClick={() => setShowCancelBox(true)}
@@ -461,15 +551,38 @@ const UserBookingDetail: React.FC = () => {
           <p className="text-sm font-semibold text-slate-700">Reason: "{booking.cancellationReason}"</p>
         </div>
       )}
+      {/* Report Issue button */}
+      <div className="bg-orange-50 border border-orange-100 rounded-[32px] p-6 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+        <div>
+          <h3 className="text-sm font-black text-slate-900">Have an issue?</h3>
+          <p className="text-xs font-semibold text-slate-500">Report this provider or the service if something went wrong.</p>
+        </div>
+        <button
+          onClick={() => setIsReportModalOpen(true)}
+          className="w-full sm:w-auto bg-orange-100 hover:bg-orange-200 text-orange-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+        >
+          <Flag size={15} /> Report Issue
+        </button>
+      </div>
 
-      {booking && (
+      {/* Modals */}
+      {booking && providerUser && (
         <ReviewModal
           isOpen={isReviewModalOpen}
           onClose={() => setIsReviewModalOpen(false)}
           bookingId={booking._id}
-          providerName={providerUser?.name || "Provider"}
-          onSuccess={() => {
-          }}
+          providerId={typeof booking.providerId === "object" ? booking.providerId._id : booking.providerId}
+          providerName={providerUser.name}
+        />
+      )}
+
+      {booking && providerUser && (
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          reportedId={typeof booking.providerId === "object" ? (booking.providerId as any).userId._id || (booking.providerId as any).userId : booking.providerId}
+          bookingId={booking._id}
+          reportedName={providerUser.name}
         />
       )}
     </div>

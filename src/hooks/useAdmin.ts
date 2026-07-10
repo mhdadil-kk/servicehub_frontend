@@ -11,6 +11,7 @@ export const useAdmin = () => {
   const [limit] = useState(3);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [services, setServices] = useState<any[]>([]);
 
   const fetchUsers = useCallback(async (search?: string, status?: string, sort?: string) => {
     setLoading(true);
@@ -108,6 +109,79 @@ export const useAdmin = () => {
     }
   }, []);
 
+  const fetchAdminServices = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminService.getServices();
+      setServices(res.data || []);
+      return res.data || [];
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch services");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const addService = useCallback(async (form: { name: string; description: string }) => {
+    try {
+      const res = await adminService.addService(form);
+      setServices(prev => [...prev, res.data]);
+      toast.success("Service category added successfully");
+      return true;
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add service");
+      return false;
+    }
+  }, []);
+
+  const deleteService = useCallback(async (id: string) => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!"
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await adminService.deleteService(id);
+        setServices(prev => prev.filter(s => s._id !== id));
+        toast.success("Service deleted");
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete service");
+      }
+    }
+  }, []);
+
+  const fetchProviderDetail = useCallback(async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminService.getProviderDetail(id);
+      return res.data;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch provider details");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const verifyProvider = useCallback(async (id: string, status: 'approved' | 'rejected', remarks?: string) => {
+    try {
+      await adminService.verifyProvider(id, status, remarks);
+      toast.success(`Provider ${status} successfully`);
+      return true;
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : `Failed to verify provider`);
+      return false;
+    }
+  }, []);
+
   return {
     data,
     total,
@@ -121,6 +195,12 @@ export const useAdmin = () => {
     blockUser,
     unblockUser,
     updateProviderStatus,
-    setData
+    setData,
+    services,
+    fetchAdminServices,
+    addService,
+    deleteService,
+    fetchProviderDetail,
+    verifyProvider
   };
 };

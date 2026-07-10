@@ -109,5 +109,22 @@ export const useAuth = () => {
     }
   };
 
-  return { login, signup, verifyOtp, forgotPassword, resetPassword, googleLogin, logout, loading, error };
+  const updateProfile = async (data: { name?: string; phone?: string; profilePhoto?: string; }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await authService.updateProfile(data);
+      if (response.data?.user) {
+        setUser(response.data.user);
+      }
+      return response;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { login, signup, verifyOtp, forgotPassword, resetPassword, googleLogin, logout, updateProfile, loading, error };
 };

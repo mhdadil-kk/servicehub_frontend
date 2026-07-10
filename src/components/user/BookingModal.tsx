@@ -192,9 +192,16 @@ const BookingModal: React.FC<BookingModalProps> = ({
         });
         toast.success("Booking rescheduled successfully!");
       } else {
+        const serviceId = provider.serviceId?._id;
+        if (!serviceId) {
+          toast.error("Provider has not assigned a service category yet.");
+          setIsSubmitting(false);
+          return;
+        }
+
         const payload = {
           providerId: provider._id,
-          serviceId: provider.serviceId?._id || "",
+          serviceId: serviceId,
           addressId: selectedAddressId,
           date: selectedDate,
           slot: { start: selectedSlot.start, end: selectedSlot.end },

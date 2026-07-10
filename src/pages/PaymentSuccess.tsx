@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "../components/Common";
-import { paymentApi } from "../api/payment.service";
+import { usePayment } from "../hooks/usePayment";
 
 const PaymentSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -11,6 +11,7 @@ const PaymentSuccess: React.FC = () => {
 
   const [status, setStatus] = useState<"loading" | "done" | "error">("loading");
   const [alreadyProcessed, setAlreadyProcessed] = useState(false);
+  const { verifyPayment } = usePayment();
 
   useEffect(() => {
     if (!sessionId || !bookingId) {
@@ -20,7 +21,7 @@ const PaymentSuccess: React.FC = () => {
 
     (async () => {
       try {
-        await paymentApi.verifyPayment(sessionId, bookingId);
+        await verifyPayment(sessionId, bookingId);
         setStatus("done");
       } catch (err: any) {
         const msg: string = err?.message || "";

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { validateFile, FILE_LIMITS, validateBio, validateHourlyRate, validateBankField } from "../../utils/validation";
-import { providerApi } from "../../api/provider.service";
-import { serviceApi } from "../../api/service.service";
+import { useProviderProfile } from "../../hooks/useProviderProfile";
 import { useAuthStore } from "../../store/useAuthStore";
 import toast from "react-hot-toast";
 import { 
@@ -10,20 +9,18 @@ import {
   Mail, Phone, AlertTriangle, Clock, Star, Heart, Loader2
 } from "lucide-react";
 import { ChangePasswordModal } from "../../components/ChangePasswordModal";
-import { reviewService } from "../../api/review.service";
 import type { Review } from "../../types/provider.types";
 
 const ProviderProfile: React.FC = () => {
   const { user, setUser } = useAuthStore();
-  const [profile, setProfile] = useState<any>(null);
-  const [services, setServices] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
+  const {
+    profile, setProfile, services, reviews, loading, saving,
+    loadProfile, loadReviews, updateProfile, updateLocation,
+    updateServiceDetails, updateBankDetails, uploadDocuments, likeReview: handleLikeReview
+  } = useProviderProfile();
 
   const [activeTab, setActiveTab] = useState("personal");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const [name, setName] = useState("");
@@ -36,7 +33,7 @@ const ProviderProfile: React.FC = () => {
   const [accountHolderName, setAccountHolderName] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
-  const [routingNumber, setRoutingNumber] = useState("");
+  const [ifscCode, setIfscCode] = useState("");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
 
   const [newPhoto, setNewPhoto] = useState<File | null>(null);
@@ -50,16 +47,7 @@ const ProviderProfile: React.FC = () => {
 
   const loadData = async () => {
     try {
-      setLoading(true);
-      const [profileRes, servicesRes] = await Promise.all([
-        providerApi.getProfile(),
-        serviceApi.getActiveServices()
-      ]);
-
-      const prof = profileRes.data;
-      setProfile(prof);
-      setServices(servicesRes.data || []);
-
+      const prof = await loadProfile();
       if (prof) {
         if (user && user.status !== prof.onboardingStatus) {
           setUser({ ...user, status: prof.onboardingStatus });
@@ -80,7 +68,7 @@ const ProviderProfile: React.FC = () => {
         setAccountHolderName(bank.accountHolderName || "");
         setBankName(bank.bankName || "");
         setAccountNumber(bank.accountNumber || "");
-        setRoutingNumber(bank.routingNumber || "");
+        setIfscCode(bank.routingNumber || "");
         
         if (prof.profilePhoto) {
           const photoUrl = prof.profilePhoto.startsWith("http") 
@@ -88,12 +76,16 @@ const ProviderProfile: React.FC = () => {
             : `http://localhost:5000/${prof.profilePhoto.replace(/\\/g, "/")}`;
           setProfilePhotoUrl(photoUrl);
         }
+
+        try {
+          setReviewsLoading(true);
+          await loadReviews(prof._id);
+        } finally {
+          setReviewsLoading(false);
+        }
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load profile details");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -171,7 +163,6 @@ const ProviderProfile: React.FC = () => {
     }
     
     setErrors({});
-    setSaving(true);
 
     try {
       const personalData = new FormData();
@@ -181,11 +172,11 @@ const ProviderProfile: React.FC = () => {
       if (newPhoto) {
         personalData.append("profilePhoto", newPhoto);
       }
-      await providerApi.updateProfile(personalData);
+      await updateProfile(personalData);
 
-      const lat = profile?.location?.coordinates?.[1] || 30.2672; // fallback to Austin or default
+      const lat = profile?.location?.coordinates?.[1] || 30.2672; 
       const lng = profile?.location?.coordinates?.[0] || -97.7431;
-      await providerApi.updateLocation({
+      await updateLocation({
         address,
         latitude: lat,
         longitude: lng,
@@ -193,13 +184,13 @@ const ProviderProfile: React.FC = () => {
       });
 
       if (selectedServiceId) {
-        await providerApi.updateServiceDetails({
+        await updateServiceDetails({
           serviceId: selectedServiceId,
           hourlyRate
         });
       }
 
-      await providerApi.updateBankDetails({
+      await updateBankDetails({
         accountHolderName,
         bankName,
         accountNumber,
@@ -218,16 +209,12 @@ const ProviderProfile: React.FC = () => {
             docData.append("license", licenseFiles[i]);
           }
         }
-        await providerApi.uploadDocuments(docData);
+        await uploadDocuments(docData);
       }
 
-      toast.success("Profile saved successfully");
       loadData();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to save profile changes");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -368,7 +355,7 @@ const ProviderProfile: React.FC = () => {
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Mail size={12} /> Email Address</label>
                       <input
                         type="email"
-                        value={profile?.userId?.email || ""}
+                        value={user?.email || profile?.userId?.email || ""}
                         disabled
                         className="w-full bg-slate-100/50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold text-slate-400 cursor-not-allowed focus:outline-none"
                         placeholder="email@example.com"
@@ -624,6 +611,18 @@ const ProviderProfile: React.FC = () => {
                         placeholder="John Doe"
                       />
                       {errors.accountHolderName && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.accountHolderName}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Bank Name</label>
+                      <input
+                        type="text"
+                        value={bankName}
+                        onChange={(e) => { setBankName(e.target.value); setErrors(prev => ({...prev, bankName: ""})); }}
+                        className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.bankName ? 'border-red-400' : 'border-slate-200'}`}
+                        placeholder="State Bank of India"
+                      />
+                      {errors.bankName && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors.bankName}</p>}
                     </div>
 
                     <div className="space-y-2">

@@ -11,47 +11,35 @@ import {
   Mail,
   AlertCircle,
   CheckCircle2,
-  Trash2
+  Trash2,
+  ShieldAlert
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { bookingApi } from "../../api/booking.service";
+import { useBooking } from "../../hooks/useBooking";
 import type { Booking } from "../../api/booking.service";
+import ReportModal from "../../components/shared/ReportModal";
 
 const ProviderBookings: React.FC = () => {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { bookings, isLoadingBookings: isLoading, fetchProviderBookings, acceptBooking, cancelBooking } = useBooking();
   const [activeTab, setActiveTab] = useState<"pending" | "confirmed" | "completed" | "cancelled">("pending");
 
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [reportBooking, setReportBooking] = useState<Booking | null>(null);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchBookings();
+    fetchProviderBookings();
   }, []);
-
-  const fetchBookings = async () => {
-    try {
-      setIsLoading(true);
-      const res = await bookingApi.getProviderBookings();
-      setBookings(res.data || []);
-    } catch (error) {
-      toast.error("Failed to load bookings.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleAccept = async (id: string) => {
     try {
-      await bookingApi.acceptBooking(id);
-      toast.success("Booking accepted! Waiting for customer to pay fee.");
-      fetchBookings();
+      await acceptBooking(id);
+      fetchProviderBookings();
     } catch (error) {
-      toast.error("Failed to accept booking.");
     }
   };
 
@@ -66,10 +54,9 @@ const ProviderBookings: React.FC = () => {
     if (!actionBookingId) return;
     setIsSubmittingAction(true);
     try {
-      await bookingApi.cancelBooking(actionBookingId, cancelReason);
-      toast.success("Booking declined successfully.");
+      await cancelBooking(actionBookingId, cancelReason);
       setActionBookingId(null);
-      fetchBookings();
+      fetchProviderBookings();
     } catch (error) {
       toast.error("Failed to decline booking.");
     } finally {
@@ -297,6 +284,15 @@ const ProviderBookings: React.FC = () => {
                         </button>
                       </>
                     )}
+
+                    <button
+                      onClick={() => setReportBooking(booking)}
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-500 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all ml-auto"
+                      title="Report Customer"
+                    >
+                      <ShieldAlert size={14} />
+                      <span className="hidden sm:inline">Report</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -353,6 +349,17 @@ const ProviderBookings: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* --- REPORT MODAL --- */}
+      {reportBooking && typeof reportBooking.userId === "object" && (
+        <ReportModal
+          isOpen={!!reportBooking}
+          onClose={() => setReportBooking(null)}
+          reportedId={(reportBooking.userId as any)._id}
+          bookingId={reportBooking._id}
+          reportedName={(reportBooking.userId as any).name || "Customer"}
+        />
       )}
     </div>
   );

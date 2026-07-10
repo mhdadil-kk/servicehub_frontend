@@ -35,7 +35,7 @@ const Sidebar: React.FC = () => {
     { icon: Users, label: "Users", path: "/admin/users" },
     { icon: Briefcase, label: "Providers", path: "/admin/providers" },
     { icon: CalendarCheck, label: "Bookings", path: "/admin/bookings" },
-    { icon: Headset, label: "Support", path: "/admin/support" },
+    { icon: Headset, label: "Reports", path: "/admin/reports" },
     { icon: Settings, label: "Services", path: "/admin/services" },
   ];
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Trash2, PlusCircle, Plus } from "lucide-react";
 import toast from "react-hot-toast";
-import { providerApi } from "../../api/provider.service";
+import { useProviderProfile } from "../../hooks/useProviderProfile";
 import { RRule, Weekday } from "rrule";
 
 type TimeSlot = { 
@@ -91,8 +91,9 @@ const ProviderAvailability: React.FC = () => {
     []
   );
 
-  const [isLoading, setIsLoading] = useState(true);
+  const { getAvailability, updateAvailability } = useProviderProfile();
 
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleStartDateChange = (newStart: string) => {
@@ -138,14 +139,9 @@ const ProviderAvailability: React.FC = () => {
 
 
   const fetchAvailability = async () => {
-  try {
-    setIsLoading(true);
-
-    const res = await providerApi.getAvailability();
-
-    console.log("FULL API RESPONSE:", res.data);
-
-    const data = res.data;
+    try {
+      setIsLoading(true);
+      const data = await getAvailability();
 
     if (data?.startDate) {
       setStartDate(data.startDate);
@@ -455,14 +451,14 @@ const ProviderAvailability: React.FC = () => {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-
+      
       if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
         toast.error("Active End Date must be after Start Date.");
         setIsSaving(false);
         return;
       }
 
-      await providerApi.updateAvailability({
+      await updateAvailability({
         startDate: startDate || null,
         endDate: endDate || null,
         weeklySchedule: schedule,
@@ -470,8 +466,7 @@ const ProviderAvailability: React.FC = () => {
       });
 
       toast.success("Availability saved successfully!");
-    } catch (error) {
-      toast.error("Failed to save availability.");
+    } catch {
     } finally {
       setIsSaving(false);
     }

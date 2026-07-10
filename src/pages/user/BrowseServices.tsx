@@ -3,7 +3,7 @@ import {
   Search as SearchIcon, MapPin, Star,
   Check, HelpCircle, ChevronDown, AlertCircle
 } from "lucide-react";
-import { serviceApi } from "../../api/service.service";
+import { useServices } from "../../hooks/useServices";
 import toast from "react-hot-toast";
 import { Pagination } from "../../components/Common/Pagination";
 import { MapContainer, TileLayer, Marker, Circle, useMap } from "react-leaflet";
@@ -84,13 +84,8 @@ const ITEMS_PER_PAGE = 5;
 
 
 const BrowseServices: React.FC = () => {
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>("");
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [_totalPages, setTotalPages] = useState<number>(1);
 
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedRating, setSelectedRating] = useState("");
@@ -108,7 +103,7 @@ const BrowseServices: React.FC = () => {
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [profileProvider, setProfileProvider] = useState<Provider | null>(null); // Full page profile
+  const [profileProvider, setProfileProvider] = useState<Provider | null>(null); 
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -123,13 +118,22 @@ const BrowseServices: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const {
+    services: categories,
+    providers,
+    total: totalCount,
+    totalPages,
+    loading,
+    fetchActiveServices,
+    browseProviders
+  } = useServices();
+
   const fetchData = async () => {
-    setLoading(true);
     setError(null);
     try {
-      const [catRes, provRes] = await Promise.all([
-        serviceApi.getActiveServices(),
-        serviceApi.browseProviders({
+      await Promise.all([
+        fetchActiveServices(),
+        browseProviders({
           search: search || undefined,
           serviceId: selectedCategory || undefined,
           ...(nearbyActive && userCoords
@@ -141,15 +145,8 @@ const BrowseServices: React.FC = () => {
           page: currentPage,
         }),
       ]);
-      setCategories(catRes.data || []);
-      setProviders(provRes.data.providers || []);
-      setTotalPages(provRes.data.totalPages || 1);
-      setTotalCount(provRes.data.total || 0);
-      setCurrentPage(provRes.data.page || 1);
     } catch (err: any) {
       setError(err.message || "Failed to load providers.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -500,8 +497,8 @@ const BrowseServices: React.FC = () => {
                     {/* Rating badge */}
                     <div className="absolute top-5 right-5 flex items-center gap-1 bg-amber-50 border border-amber-100 rounded-full px-2.5 py-1 text-[11px] font-black text-amber-700">
                       <Star size={11} className="fill-amber-500 text-amber-500" />
-                      {sim.rating}
-                      <span className="text-slate-400 font-bold text-[10px]">({sim.reviewCount})</span>
+                      {p.averageRating ? p.averageRating.toFixed(1) : sim.rating}
+                      <span className="text-slate-400 font-bold text-[10px]">({p.totalReviews || sim.reviewCount})</span>
                     </div>
 
                     {/* Avatar */}

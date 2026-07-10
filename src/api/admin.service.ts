@@ -39,4 +39,13 @@ export const adminService = {
 
   deleteService: (id: string) => 
     axiosInstance.delete<unknown, ApiResponse<null>>(API_ROUTES.ADMIN.DELETE_SERVICE(id)),
+
+  getDashboardStats: (timeRange?: string) =>
+    axiosInstance.get<unknown, ApiResponse<any>>(`/admin/dashboard`, { params: { timeRange } }),
+
+  getAllBookings: (search?: string, status?: string, sort?: string, page?: number, limit?: number) =>
+    axiosInstance.get<unknown, ApiResponse<{ bookings: any[], total: number }>>(`/admin/bookings`, { params: { search, status, sort, page, limit } }),
+
+  getBookingById: (id: string) =>
+    axiosInstance.get<unknown, ApiResponse<any>>(`/admin/bookings/${id}`),
 };

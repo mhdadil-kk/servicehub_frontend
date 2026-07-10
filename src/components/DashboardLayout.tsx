@@ -152,12 +152,12 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         </div>
 
         <div className="p-4">
-          <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex items-center gap-3 cursor-pointer hover:bg-orange-100 transition-colors">
+          <Link to={user?.role === "provider" ? "/provider/reports" : "/user/reports"} className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex items-center gap-3 cursor-pointer hover:bg-orange-100 transition-colors">
             <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600">
-              <HelpCircle size={20} />
+              <AlertTriangle size={20} />
             </div>
-            <span className="text-sm font-bold text-orange-700">Support Center</span>
-          </div>
+            <span className="text-sm font-bold text-orange-700">My Reports</span>
+          </Link>
         </div>
 
         <div className="p-4 border-t border-slate-50">

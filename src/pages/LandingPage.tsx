@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Search, Star, Home, Droplet, Zap, Truck, Calendar, Coffee, Globe, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
-import { serviceApi } from '../api/service.service';
+import { useServices } from '../hooks/useServices';
+import { useAuthStore } from '../store/useAuthStore';
 
 const getCategoryIcon = (name: string) => {
   const n = name.toLowerCase();
@@ -28,22 +29,21 @@ const getCategoryColor = (index: number) => {
 
 const LandingPage: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
-  const [providers, setProviders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [featuredProviders, setFeaturedProviders] = useState<any[]>([]);
+  const { fetchActiveServices, browseProviders, loading } = useServices();
+  const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
     const fetchLandingData = async () => {
       try {
         const [catRes, provRes] = await Promise.all([
-          serviceApi.getActiveServices(),
-          serviceApi.browseProviders({ limit: 3 })
+          fetchActiveServices(),
+          browseProviders({ limit: 3 })
         ]);
-        setCategories((catRes as any).data?.slice(0, 8) || []);
-        setProviders((provRes as any).data?.providers || []);
+        setCategories(catRes?.slice(0, 8) || []);
+        setFeaturedProviders(provRes?.providers || []);
       } catch (error) {
         console.error("Error fetching landing page data:", error);
-      } finally {
-        setLoading(false);
       }
     };
     fetchLandingData();
@@ -66,10 +66,18 @@ const LandingPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <Link to="/login" className="text-sm font-bold text-slate-600 hover:text-blue-600 px-4">Login</Link>
-              <Link to="/register" className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
-                Register
-              </Link>
+              {isAuthenticated ? (
+                <Link to={user?.role === "provider" ? "/provider/dashboard" : "/user/dashboard"} className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login" className="text-sm font-bold text-slate-600 hover:text-blue-600 px-4">Login</Link>
+                  <Link to="/register" className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
+                    Register
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -169,7 +177,7 @@ const LandingPage: React.FC = () => {
              </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {providers.map((p) => (
+              {featuredProviders.map((p) => (
                 <div key={p._id} className="bg-white rounded-[32px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-2xl transition-all group">
                   <div className="relative h-56 overflow-hidden bg-slate-100">
                     <img 

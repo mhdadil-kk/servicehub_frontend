@@ -34,6 +34,10 @@ import ProviderWallet from "./pages/provider/ProviderWallet";
 import ChatPage from "./pages/ChatPage";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancel from "./pages/PaymentCancel";
+import MyReports from "./pages/common/MyReports";
+import AdminReports from "./pages/admin/AdminReports";
+import AdminBookings from "./pages/admin/AdminBookings";
+import AdminBookingDetail from "./pages/admin/AdminBookingDetail";
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { isAuthenticated, user } = useAuthStore();
@@ -86,12 +90,16 @@ const App: React.FC = () => {
           <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
           
           <Route path="/admin/login" element={<PublicRoute><AdminLogin /></PublicRoute>} />
+          <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={["admin"]}><AdminReports /></ProtectedRoute>} />
           
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUsers /></ProtectedRoute>} />
           <Route path="/admin/providers" element={<ProtectedRoute allowedRoles={["admin"]}><AdminProviders /></ProtectedRoute>} />
           <Route path="/admin/providers/:id" element={<ProtectedRoute allowedRoles={["admin"]}><AdminProviderDetail /></ProtectedRoute>} />
           <Route path="/admin/services" element={<ProtectedRoute allowedRoles={["admin"]}><AdminServices /></ProtectedRoute>} />
+          <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={["admin"]}><AdminReports /></ProtectedRoute>} />
+          <Route path="/admin/bookings" element={<ProtectedRoute allowedRoles={["admin"]}><AdminBookings /></ProtectedRoute>} />
+          <Route path="/admin/bookings/:id" element={<ProtectedRoute allowedRoles={["admin"]}><AdminBookingDetail /></ProtectedRoute>} />
           
           <Route path="/provider/onboarding" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderOnboarding /></ProtectedRoute>} />
           
@@ -103,6 +111,7 @@ const App: React.FC = () => {
           <Route path="/provider/availability" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderAvailability /></ProtectedRoute>} />
           <Route path="/provider/wallet" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderWallet /></ProtectedRoute>} />
           <Route path="/provider/messages" element={<ProtectedRoute allowedRoles={["provider"]}><ChatPage /></ProtectedRoute>} />
+          <Route path="/provider/reports" element={<ProtectedRoute allowedRoles={["provider"]}><MyReports /></ProtectedRoute>} />
           
           <Route path="/user" element={<Navigate to="/user/dashboard" replace />} />
           <Route path="/user/dashboard" element={<ProtectedRoute allowedRoles={["user"]}><UserDashboard /></ProtectedRoute>} />
@@ -113,6 +122,7 @@ const App: React.FC = () => {
           <Route path="/user/profile" element={<ProtectedRoute allowedRoles={["user"]}><UserProfile /></ProtectedRoute>} />
           <Route path="/user/addresses" element={<ProtectedRoute allowedRoles={["user"]}><AddressBook /></ProtectedRoute>} />
           <Route path="/user/messages" element={<ProtectedRoute allowedRoles={["user"]}><ChatPage /></ProtectedRoute>} />
+          <Route path="/user/reports" element={<ProtectedRoute allowedRoles={["user"]}><MyReports /></ProtectedRoute>} />
 
           <Route path="/payment-success" element={<ProtectedRoute allowedRoles={["user"]}><PaymentSuccess /></ProtectedRoute>} />
           <Route path="/payment-cancel" element={<ProtectedRoute allowedRoles={["user"]}><PaymentCancel /></ProtectedRoute>} />

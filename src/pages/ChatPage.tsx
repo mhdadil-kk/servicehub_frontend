@@ -9,30 +9,34 @@ import {
   CheckCheck,
   Loader2,
   Inbox,
-  Trash2
+  Trash2,
+  ShieldAlert
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import toast from "react-hot-toast";
-import { chatApi } from "../api/chat.service";
+import { useChat } from "../hooks/useChat";
 import type { Message, Conversation } from "../api/chat.service";
 import { getSocket } from "../socket";
+import ReportModal from "../components/shared/ReportModal";
 
 const ChatPage: React.FC = () => {
   const { user } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const {
+    conversations, setConversations, isLoadingConversations, fetchConversations,
+    messages, setMessages, isLoadingMessages, loadChatHistory, deleteConversation, isDeleting: isDeletingChat
+  } = useChat();
+
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; conversationId: string } | null>(null);
 
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
-  const [isDeletingChat, setIsDeletingChat] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
 
@@ -72,11 +76,7 @@ const ChatPage: React.FC = () => {
     if (!deleteConversationId) return;
 
     try {
-      setIsDeletingChat(true);
-
-      await chatApi.deleteConversation(deleteConversationId);
-
-      toast.success("Chat conversation deleted successfully.");
+      await deleteConversation(deleteConversationId);
 
       setConversations(prev => {
         const next = prev.filter(c => c._id !== deleteConversationId);
@@ -96,9 +96,6 @@ const ChatPage: React.FC = () => {
 
       setDeleteConversationId(null);
     } catch {
-      toast.error("Failed to delete conversation.");
-    } finally {
-      setIsDeletingChat(false);
     }
   };
 
@@ -130,8 +127,30 @@ const ChatPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchConversations();
+    fetchChatList();
   }, []);
+
+  const fetchChatList = async () => {
+    const list = await fetchConversations();
+    const qBookingId = searchParams.get("bookingId");
+    const qConversationId = searchParams.get("conversationId");
+
+    if (list.length > 0) {
+      let found = null;
+      if (qConversationId) {
+        found = list.find(c => c._id === qConversationId);
+      } else if (qBookingId) {
+        found = list.find(c => c.bookingId?._id === qBookingId);
+      }
+
+      if (found) {
+        setSelectedConversation(found);
+      } else if (!qConversationId && !qBookingId) {
+        setSelectedConversation(list[0]);
+        setSearchParams({ conversationId: list[0]._id });
+      }
+    }
+  };
 
   useEffect(() => {
     const qBookingId = searchParams.get("bookingId");
@@ -177,7 +196,6 @@ const ChatPage: React.FC = () => {
 
           if (msg.senderId !== user?.id) {
             s.emit("mark_read", selectedConversation._id);
-            chatApi.markAsRead(selectedConversation._id).catch(console.error);
           }
         }
 
@@ -246,69 +264,6 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const fetchConversations = async () => {
-    try {
-      setIsLoadingConversations(true);
-      const res = await chatApi.getConversations();
-      const list = res.data || [];
-      setConversations(list);
-
-      const qBookingId = searchParams.get("bookingId");
-      const qConversationId = searchParams.get("conversationId");
-
-      if (list.length > 0) {
-        let found = null;
-        if (qConversationId) {
-          found = list.find(c => c._id === qConversationId);
-        } else if (qBookingId) {
-          found = list.find(c => c.bookingId?._id === qBookingId);
-        }
-
-        if (found) {
-          setSelectedConversation(found);
-        } else if (!qConversationId && !qBookingId) {
-          setSelectedConversation(list[0]);
-          setSearchParams({ conversationId: list[0]._id });
-        }
-      }
-    } catch (e) {
-      toast.error("Failed to load active chats.");
-    } finally {
-      setIsLoadingConversations(false);
-    }
-  };
-
-  const loadChatHistory = async (id: string) => {
-    try {
-      setIsLoadingMessages(true);
-
-      const res = await chatApi.getChatHistory(id);
-
-      const chatMessages = res.data || [];
-
-      chatMessages.sort(
-        (a: Message, b: Message) =>
-          new Date(a.createdAt).getTime() -
-          new Date(b.createdAt).getTime()
-      );
-
-      setMessages(chatMessages);
-
-      await chatApi.markAsRead(id);
-
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: "auto"
-        });
-      }, 100);
-
-    } catch (e) {
-      toast.error("Failed to load chat history.");
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -477,19 +432,29 @@ const ChatPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Booking schedule details */}
-              {selectedConversation.bookingId && (
-                <div className="hidden md:flex gap-6 text-[10px] font-bold text-slate-400">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar size={13} />
-                    <span>{selectedConversation.bookingId.date}</span>
+              {/* Booking schedule details and Report button */}
+              <div className="flex items-center gap-4">
+                {selectedConversation.bookingId && typeof selectedConversation.bookingId === 'object' && selectedConversation.bookingId.slot && (
+                  <div className="hidden md:flex gap-6 text-[10px] font-bold text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={13} />
+                      <span>{selectedConversation.bookingId.date}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={13} />
+                      <span>{selectedConversation.bookingId.slot.start} - {selectedConversation.bookingId.slot.end}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={13} />
-                    <span>{selectedConversation.bookingId.slot.start} - {selectedConversation.bookingId.slot.end}</span>
-                  </div>
-                </div>
-              )}
+                )}
+                
+                <button
+                  onClick={() => setIsReportModalOpen(true)}
+                  className="w-9 h-9 rounded-full bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-colors border border-slate-100"
+                  title="Report User"
+                >
+                  <ShieldAlert size={16} />
+                </button>
+              </div>
             </div>
 
             {/* Message Bubble list */}
@@ -723,6 +688,21 @@ const ChatPage: React.FC = () => {
 
           </div>
         </div>
+      )}
+
+      {/* Report Modal */}
+      {selectedConversation && isReportModalOpen && (
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          reportedId={selectedConversation.participants.find(p => p._id !== user?.id)?._id || ""}
+          bookingId={
+            selectedConversation.bookingId 
+              ? (typeof selectedConversation.bookingId === 'object' ? selectedConversation.bookingId._id : selectedConversation.bookingId) 
+              : undefined
+          }
+          reportedName={selectedConversation.participants.find(p => p._id !== user?.id)?.name}
+        />
       )}
 
     </div>

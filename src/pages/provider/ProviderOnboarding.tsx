@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { validateFile, FILE_LIMITS, validateBankField, validateHourlyRate } from '../../utils/validation';
 import { useNavigate } from 'react-router-dom';
-import { serviceApi } from '../../api/service.service';
-import { providerApi } from '../../api/provider.service';
+import { useServices } from '../../hooks/useServices';
+import { useProviderProfile } from '../../hooks/useProviderProfile';
 import toast from 'react-hot-toast';
 import { 
   User, 
@@ -29,6 +29,9 @@ type Step = 1 | 2 | 3 | 4;
 const ProviderOnboarding: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const { fetchActiveServices } = useServices();
+  const { updateProfile, updateServiceDetails, uploadDocuments, updateBankDetails, loadProfile } = useProviderProfile();
+
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [progress, setProgress] = useState(25);
 
@@ -181,14 +184,14 @@ const ProviderOnboarding: React.FC = () => {
     const initOnboarding = async () => {
       try {
         const [servicesRes, profileRes] = await Promise.all([
-          serviceApi.getActiveServices(),
-          providerApi.getProfile()
+          fetchActiveServices(),
+          loadProfile()
         ]);
         
-        setAvailableServices(servicesRes.data || []);
+        setAvailableServices(servicesRes || []);
         
-        if (profileRes.data) {
-          const profile = profileRes.data;
+        if (profileRes) {
+          const profile = profileRes;
           
           if (profile.onboardingStatus !== "pending") {
             navigate("/provider");
@@ -215,8 +218,7 @@ const ProviderOnboarding: React.FC = () => {
           setProgress(profile.onboardingStep * 25);
         }
       } catch (error: unknown) {
-      const err = error as any;
-        toast.error(error.message || "Failed to initialize onboarding");
+        toast.error("Failed to initialize onboarding");
       } finally {
         setLoadingServices(false);
         setInitialLoading(false);
@@ -245,7 +247,7 @@ const ProviderOnboarding: React.FC = () => {
         formData.append("latitude", form.latitude!.toString());
         formData.append("longitude", form.longitude!.toString());
         if (profilePhoto) formData.append("profilePhoto", profilePhoto);
-        await providerApi.updateProfile(formData);
+        await updateProfile(formData);
       } 
       else if (currentStep === 2) {
         if (!selectedService) newErrors.service = "Please select a service category.";
@@ -253,7 +255,7 @@ const ProviderOnboarding: React.FC = () => {
         if (rateErr) newErrors.hourlyRate = rateErr;
         
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsSubmitting(false); return; }
-        await providerApi.updateServiceDetails({
+        await updateServiceDetails({
           serviceId: selectedService._id || selectedService,
           hourlyRate: Number(form.hourlyRate)
         });
@@ -263,7 +265,7 @@ const ProviderOnboarding: React.FC = () => {
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsSubmitting(false); return; }
         const formData = new FormData();
         verificationDocs.forEach(file => { formData.append("documents", file); });
-        await providerApi.uploadDocuments(formData);
+        await uploadDocuments(formData);
       }
       else if (currentStep === 4) {
         const ahErr = validateBankField(form.accountHolderName, "Account holder name");
@@ -279,7 +281,7 @@ const ProviderOnboarding: React.FC = () => {
         if (rnErr) newErrors.routingNumber = rnErr;
 
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsSubmitting(false); return; }
-        await providerApi.updateBankDetails({
+        await updateBankDetails({
           accountHolderName: form.accountHolderName,
           bankName: form.bankName,
           accountNumber: form.accountNumber,
@@ -298,8 +300,7 @@ const ProviderOnboarding: React.FC = () => {
       } else {
         setProgress(100);
       }
-    } catch (error: unknown) {
-      const err = error as any;
+    } catch (error: any) {
       const serverMsg: string = error?.response?.data?.message || error?.message || "";
       if (serverMsg.toLowerCase().includes("photo") || serverMsg.toLowerCase().includes("image") || serverMsg.toLowerCase().includes("jpg") || serverMsg.toLowerCase().includes("png")) {
         setError("profilePhoto", "Only JPG, JPEG, and PNG images are allowed for profile photos.");
