@@ -9,4 +9,6 @@ export const paymentApi = {
     >,
   verifyPayment: (sessionId: string, bookingId: string) =>
     api.post(API_ROUTES.PAYMENTS.VERIFY, { sessionId, bookingId }),
+  payWithWallet: (bookingId: string) =>
+    api.post(API_ROUTES.PAYMENTS.WALLET_PAY, { bookingId }),
 };

@@ -11,11 +11,14 @@ import {
   X,
   FileText,
   Star,
-  Flag
+  Flag,
+  RefreshCw,
+  Wallet
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { ReviewModal } from "../../components/ReviewModal";
 import ReportModal from "../../components/shared/ReportModal";
+import BookingModal from "../../components/user/BookingModal";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -35,6 +38,7 @@ import { bookingApi } from "../../api/booking.service";
 import type { Booking } from "../../api/booking.service";
 import { paymentApi } from "../../api/payment.service";
 import { generateInvoicePDF } from "../../utils/pdf";
+import { useWallet } from "../../hooks/useWallet";
 
 const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="flex justify-between items-center py-2.5 border-b border-slate-50 last:border-0">
@@ -72,24 +76,28 @@ const UserBookingDetail: React.FC = () => {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonError, setCancelReasonError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { wallet, fetchWalletData } = useWallet();
 
 
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+
+  const fetchBookingData = async () => {
+    try {
+      const res = await bookingApi.getBookingDetail(bookingId!);
+      setBooking(res.data ?? null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to load booking details");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!bookingId) return;
-    const fetchBooking = async () => {
-      try {
-        const res = await bookingApi.getBookingDetail(bookingId);
-        setBooking(res.data ?? null);
-      } catch (err: any) {
-        setError(err.response?.data?.message || "Failed to load booking details");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchBooking();
+    fetchBookingData();
+    fetchWalletData().catch(() => {});
   }, [bookingId]);
 
   const handleCancel = async () => {
@@ -132,6 +140,24 @@ const UserBookingDetail: React.FC = () => {
     } catch (err) {
       toast.dismiss();
       toast.error("Failed to initiate payment");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePayWithWallet = async () => {
+    if (!booking) return;
+    try {
+      setIsSubmitting(true);
+      toast.loading("Processing wallet payment...");
+      await paymentApi.payWithWallet(booking._id);
+      toast.dismiss();
+      toast.success("Payment successful!");
+      fetchBookingData();
+      fetchWalletData().catch(() => {});
+    } catch (err: any) {
+      toast.dismiss();
+      toast.error(err.response?.data?.message || "Failed to process wallet payment");
     } finally {
       setIsSubmitting(false);
     }
@@ -266,12 +292,6 @@ const UserBookingDetail: React.FC = () => {
             <p className="text-xs font-bold text-blue-600 mt-0.5">{serviceInfo?.name}</p>
           </div>
         </div>
-        <button
-          onClick={handleChat}
-          className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 transition-colors w-full sm:w-auto justify-center"
-        >
-          <MessageSquare size={15} /> Message
-        </button>
       </div>
 
       {/* ── Provider Reschedule Banner ────────────────────────────────── */}
@@ -433,6 +453,14 @@ const UserBookingDetail: React.FC = () => {
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
                   Pay Booking Fee (₹100)
                 </button>
+                <button
+                  onClick={handlePayWithWallet}
+                  disabled={isSubmitting || !wallet || (wallet as any).balance < 100}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
+                  Pay from Wallet {!wallet || (wallet as any).balance < 100 ? "(Insufficient Balance)" : `(Bal: ₹${(wallet as any).balance})`}
+                </button>
               </div>
             )}
 
@@ -467,6 +495,14 @@ const UserBookingDetail: React.FC = () => {
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
                   Pay Final Invoice (₹{booking.totalAmount})
+                </button>
+                <button
+                  onClick={handlePayWithWallet}
+                  disabled={isSubmitting || !wallet || (wallet as any).balance < booking.totalAmount!}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
+                  Pay from Wallet {!wallet || (wallet as any).balance < booking.totalAmount! ? "(Insufficient Balance)" : `(Bal: ₹${(wallet as any).balance})`}
                 </button>
               </div>
             )}
@@ -510,12 +546,20 @@ const UserBookingDetail: React.FC = () => {
             )}
 
             {(isPending || isAwaitingPayment || isConfirmed) && !showCancelBox && (
-              <button
-                onClick={() => setShowCancelBox(true)}
-                className="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center gap-2 transition-all border border-red-100 w-full justify-center"
-              >
-                <X size={15} /> Cancel Booking
-              </button>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setIsRescheduleModalOpen(true)}
+                  className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-200"
+                >
+                  <RefreshCw size={15} /> Reschedule
+                </button>
+                <button
+                  onClick={() => setShowCancelBox(true)}
+                  className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-red-100"
+                >
+                  <X size={15} /> Cancel
+                </button>
+              </div>
             )}
 
             {(isPending || isAwaitingPayment || isConfirmed) && showCancelBox && (
@@ -536,6 +580,22 @@ const UserBookingDetail: React.FC = () => {
                 </button>
               </div>
             )}
+
+            {/* General Actions for Active Bookings */}
+            <div className="pt-4 mt-2 border-t border-slate-50 grid grid-cols-2 gap-3 w-full">
+              <button
+                onClick={handleChat}
+                className="w-full bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+              >
+                <MessageSquare size={15} /> Chat with Provider
+              </button>
+              <button
+                onClick={() => setIsReportModalOpen(true)}
+                className="w-full bg-orange-50 text-orange-600 hover:bg-orange-100 hover:text-orange-700 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+              >
+                <Flag size={15} /> Report Issue
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -551,19 +611,6 @@ const UserBookingDetail: React.FC = () => {
           <p className="text-sm font-semibold text-slate-700">Reason: "{booking.cancellationReason}"</p>
         </div>
       )}
-      {/* Report Issue button */}
-      <div className="bg-orange-50 border border-orange-100 rounded-[32px] p-6 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
-        <div>
-          <h3 className="text-sm font-black text-slate-900">Have an issue?</h3>
-          <p className="text-xs font-semibold text-slate-500">Report this provider or the service if something went wrong.</p>
-        </div>
-        <button
-          onClick={() => setIsReportModalOpen(true)}
-          className="w-full sm:w-auto bg-orange-100 hover:bg-orange-200 text-orange-600 font-bold text-xs px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
-        >
-          <Flag size={15} /> Report Issue
-        </button>
-      </div>
 
       {/* Modals */}
       {booking && providerUser && (
@@ -583,6 +630,18 @@ const UserBookingDetail: React.FC = () => {
           reportedId={typeof booking.providerId === "object" ? (booking.providerId as any).userId._id || (booking.providerId as any).userId : booking.providerId}
           bookingId={booking._id}
           reportedName={providerUser.name}
+        />
+      )}
+
+      {booking && providerInfo && (
+        <BookingModal
+          isOpen={isRescheduleModalOpen}
+          onClose={() => setIsRescheduleModalOpen(false)}
+          provider={providerInfo as any}
+          rescheduleBookingId={booking._id}
+          initialAddressId={typeof booking.addressId === "object" ? (booking.addressId as any)._id : booking.addressId}
+          initialNotes={booking.notes}
+          onSuccess={() => { setIsRescheduleModalOpen(false); fetchBookingData(); }}
         />
       )}
     </div>

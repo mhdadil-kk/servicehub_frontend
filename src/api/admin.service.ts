@@ -48,4 +48,7 @@ export const adminService = {
 
   getBookingById: (id: string) =>
     axiosInstance.get<unknown, ApiResponse<any>>(`/admin/bookings/${id}`),
+
+  getRevenueReport: (timeRange?: string) =>
+    axiosInstance.get<unknown, ApiResponse<any>>(`/admin/revenue`, { params: { timeRange } }),
 };

@@ -28,5 +28,6 @@ export const API_ROUTES = {
     PAYMENTS: {
     CREATE_CHECKOUT: "/payments/create-checkout-session",
     VERIFY: "/payments/verify-payment",
+    WALLET_PAY: "/payments/wallet-pay",
   },
 };

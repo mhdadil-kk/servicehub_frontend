@@ -69,7 +69,7 @@ const ProviderBookings: React.FC = () => {
   };
 
   const filteredBookings = bookings.filter((b) => {
-    if (activeTab === "pending") return b.status === "pending" || b.status === "awaiting_payment";
+    if (activeTab === "pending") return b.status === "pending" || b.status === "awaiting_payment" || b.status === "awaiting_user_confirmation";
     if (activeTab === "confirmed") return b.status === "confirmed";
     if (activeTab === "completed") return b.status === "completed";
     return b.status === "cancelled" || b.status === "rescheduled";
@@ -87,7 +87,7 @@ const ProviderBookings: React.FC = () => {
       <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
         {(["pending", "confirmed", "completed", "cancelled"] as const).map((tab) => {
           const count = bookings.filter(b => {
-            if (tab === "pending") return b.status === "pending" || b.status === "awaiting_payment";
+            if (tab === "pending") return b.status === "pending" || b.status === "awaiting_payment" || b.status === "awaiting_user_confirmation";
             if (tab === "confirmed") return b.status === "confirmed";
             if (tab === "completed") return b.status === "completed";
             return b.status === "cancelled" || b.status === "rescheduled";
@@ -262,6 +262,14 @@ const ProviderBookings: React.FC = () => {
                       <div className="bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2">
                         <Clock size={14} />
                         <span>Awaiting final confirmation</span>
+                      </div>
+                    )}
+                    
+                    {/* Awaiting User Confirmation Badge */}
+                    {booking.status === "awaiting_user_confirmation" && (
+                      <div className="bg-amber-50 border border-amber-100 text-amber-700 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2">
+                        <Clock size={14} />
+                        <span>Waiting for customer to accept reschedule</span>
                       </div>
                     )}
 

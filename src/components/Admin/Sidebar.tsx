@@ -7,7 +7,8 @@ import {
   CalendarCheck, 
   Headset, 
   Settings,
-  LogOut
+  LogOut,
+  TrendingUp
 } from "lucide-react";
 import logo from "../../assets/logo.png";
 import { useAuth } from "../../hooks/useAuth";
@@ -35,6 +36,7 @@ const Sidebar: React.FC = () => {
     { icon: Users, label: "Users", path: "/admin/users" },
     { icon: Briefcase, label: "Providers", path: "/admin/providers" },
     { icon: CalendarCheck, label: "Bookings", path: "/admin/bookings" },
+    { icon: TrendingUp, label: "Revenue", path: "/admin/revenue" },
     { icon: Headset, label: "Reports", path: "/admin/reports" },
     { icon: Settings, label: "Services", path: "/admin/services" },
   ];

@@ -38,6 +38,7 @@ import MyReports from "./pages/common/MyReports";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminBookings from "./pages/admin/AdminBookings";
 import AdminBookingDetail from "./pages/admin/AdminBookingDetail";
+import AdminRevenue from "./pages/admin/AdminRevenue";
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { isAuthenticated, user } = useAuthStore();
@@ -100,6 +101,7 @@ const App: React.FC = () => {
           <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={["admin"]}><AdminReports /></ProtectedRoute>} />
           <Route path="/admin/bookings" element={<ProtectedRoute allowedRoles={["admin"]}><AdminBookings /></ProtectedRoute>} />
           <Route path="/admin/bookings/:id" element={<ProtectedRoute allowedRoles={["admin"]}><AdminBookingDetail /></ProtectedRoute>} />
+          <Route path="/admin/revenue" element={<ProtectedRoute allowedRoles={["admin"]}><AdminRevenue /></ProtectedRoute>} />
           
           <Route path="/provider/onboarding" element={<ProtectedRoute allowedRoles={["provider"]}><ProviderOnboarding /></ProtectedRoute>} />
           

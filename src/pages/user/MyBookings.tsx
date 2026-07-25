@@ -27,7 +27,7 @@ import ReportModal from "../../components/shared/ReportModal";
 import type { Provider } from "../../types/provider.types";
 
 const MyBookings: React.FC = () => {
-  const { bookings, isLoadingBookings: isLoading, fetchUserBookings, cancelBooking } = useBooking();
+  const { bookings, isLoadingBookings: isLoading, fetchUserBookings, cancelBooking, acceptReschedule, rejectReschedule } = useBooking();
   const { createCheckoutSession } = usePayment();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "cancelled">("upcoming");
 
@@ -108,12 +108,12 @@ const MyBookings: React.FC = () => {
   };
 
   const filteredBookings = bookings.filter((b) => {
-    if (activeTab === "upcoming") return ["pending", "awaiting_payment", "confirmed", "in_progress", "completed_pending_payment"].includes(b.status);
+    if (activeTab === "upcoming") return ["pending", "awaiting_payment", "confirmed", "in_progress", "completed_pending_payment", "awaiting_user_confirmation"].includes(b.status);
     if (activeTab === "past") return ["completed"].includes(b.status);
     return ["cancelled", "rescheduled"].includes(b.status);
   });
 
-  const upcomingCount = bookings.filter((b) => ["pending", "awaiting_payment", "confirmed", "in_progress", "completed_pending_payment"].includes(b.status)).length;
+  const upcomingCount = bookings.filter((b) => ["pending", "awaiting_payment", "confirmed", "in_progress", "completed_pending_payment", "awaiting_user_confirmation"].includes(b.status)).length;
   const completedCount = bookings.filter((b) => b.status === "completed").length;
   const cancelledCount = bookings.filter((b) => ["cancelled", "rescheduled"].includes(b.status)).length;
 
@@ -126,6 +126,7 @@ const MyBookings: React.FC = () => {
     cancelled: { label: "Cancelled", cls: "bg-rose-50 text-rose-600 border-rose-100", dot: "bg-rose-500" },
     rescheduled: { label: "Rescheduled", cls: "bg-amber-50 text-amber-600 border-amber-100", dot: "bg-amber-500" },
     pending: { label: "Pending", cls: "bg-orange-50 text-orange-600 border-orange-100", dot: "bg-orange-400" },
+    awaiting_user_confirmation: { label: "Action Required", cls: "bg-amber-50 text-amber-600 border-amber-100", dot: "bg-amber-500" },
   };
 
   const tabs = [
@@ -323,6 +324,36 @@ const MyBookings: React.FC = () => {
                             </button>
                             <button onClick={() => { handleCancelClick(booking); setOpenMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50">
                               <Trash2 size={15} /> Cancel Booking
+                            </button>
+                          </>
+                        )}
+                        {booking.status === "awaiting_user_confirmation" && (
+                          <>
+                            <button onClick={async () => {
+                              try {
+                                toast.loading("Accepting...", { id: "reschedule" });
+                                await acceptReschedule(booking._id);
+                                fetchUserBookings();
+                                toast.success("Reschedule accepted!", { id: "reschedule" });
+                              } catch (e) {
+                                toast.error("Failed to accept", { id: "reschedule" });
+                              }
+                              setOpenMenuId(null);
+                            }} className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-emerald-50 text-emerald-600 font-bold">
+                              <CheckCircle2 size={15} /> Accept New Time
+                            </button>
+                            <button onClick={async () => {
+                              try {
+                                toast.loading("Rejecting...", { id: "reschedule" });
+                                await rejectReschedule(booking._id);
+                                fetchUserBookings();
+                                toast.success("Reschedule rejected", { id: "reschedule" });
+                              } catch (e) {
+                                toast.error("Failed to reject", { id: "reschedule" });
+                              }
+                              setOpenMenuId(null);
+                            }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50">
+                              <XCircle size={15} /> Reject & Cancel
                             </button>
                           </>
                         )}

@@ -465,7 +465,6 @@ const ProviderAvailability: React.FC = () => {
         overrides,
       });
 
-      toast.success("Availability saved successfully!");
     } catch {
     } finally {
       setIsSaving(false);

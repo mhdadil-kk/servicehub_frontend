@@ -147,12 +147,10 @@ const ProviderBookingDetail: React.FC = () => {
   const [completionOtp, setCompletionOtp] = useState("");
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  // Reschedule State
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSlot, setRescheduleSlot] = useState<{ start: string; end: string } | null>(null);
 
-  // Fetch slots when date changes
   useEffect(() => {
     if (rescheduleDate && booking) {
       const providerInfo: any = booking.providerId;
