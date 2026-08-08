@@ -21,6 +21,7 @@ export interface IUser {
   is_verified: boolean;
   status: "approved" | "rejected" | "pending" | "in_review";
   isDeleted: boolean;
+  totalBookings?: number; 
   created_at?: string;
   updated_at?: string;
 }

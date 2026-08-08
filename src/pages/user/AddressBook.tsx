@@ -151,7 +151,7 @@ const AddressBook: React.FC = () => {
         await createAddress(payload);
       }
       setIsModalOpen(false);
-    } catch (error: unknown) {
+    } catch (error) {
       console.error(error);
     }
   };

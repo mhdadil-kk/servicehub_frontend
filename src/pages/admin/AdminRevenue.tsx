@@ -28,11 +28,11 @@ const BarChart: React.FC<{ data: { label: string; value: number }[] }> = ({ data
           const x = i * (barW + 12) + 6;
           const y = chartH - barHeight;
           return (
-            <g key={i}>
+            <g key={`bar-${d.label}-${i}`}>
               <rect x={x} y={y} width={barW} height={barHeight} rx={6} ry={6} fill="url(#barGrad)" />
               {d.value > 0 && (
                 <text x={x + barW / 2} y={y - 6} textAnchor="middle" fontSize={10} fill="#64748b" fontWeight="600">
-                  {d.value >= 1000 ? `Rs.${(d.value / 1000).toFixed(1)}k` : `Rs.${d.value}`}
+                  {d.value >= 1000 ? `₹${(d.value / 1000).toFixed(1)}k` : `₹${d.value}`}
                 </text>
               )}
               <text x={x + barW / 2} y={chartH + 20} textAnchor="middle" fontSize={11} fill="#94a3b8" fontWeight="500">
@@ -84,8 +84,8 @@ const AdminRevenue: React.FC = () => {
   }, [timeRange]);
 
   const handleExport = () => {
-    if (!data) return;
-    const rows = [["Month", "Year", "Revenue (Rs.)"], ...data.revenueByMonth.map((r) => [r.month, r.year, r.revenue])];
+    if (!data || !data.revenueByMonth) return;
+    const rows = [["Month", "Year", "Revenue (Rs.)"], ...data.revenueByMonth.map((r) => [r.month, String(r.year), String(r.revenue)])];
     const csv = rows.map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -97,8 +97,9 @@ const AdminRevenue: React.FC = () => {
     toast.success("Report exported!");
   };
 
+  const monthlyList = data?.revenueByMonth ?? [];
   const completionRate = data && data.totalBookings > 0 ? ((data.completedBookings / data.totalBookings) * 100).toFixed(1) : "0";
-  const chartData = data?.revenueByMonth.map((r) => ({ label: `${r.month} ${r.year}`, value: r.revenue })) ?? [];
+  const chartData = monthlyList.map((r) => ({ label: `${r.month} ${r.year}`, value: r.revenue }));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -119,7 +120,7 @@ const AdminRevenue: React.FC = () => {
           </select>
           <button
             onClick={handleExport}
-            disabled={!data}
+            disabled={!data || monthlyList.length === 0}
             className="bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-bold shadow-sm hover:bg-indigo-700 transition-all flex items-center gap-2 disabled:opacity-50"
           >
             <Download size={16} />
@@ -187,8 +188,8 @@ const AdminRevenue: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {data?.revenueByMonth.map((r, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
+                    {monthlyList.map((r, i) => (
+                      <tr key={`row-${r.year}-${r.month}-${i}`} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-3.5 font-semibold text-slate-800">{r.month}</td>
                         <td className="px-6 py-3.5 text-slate-500">{r.year}</td>
                         <td className="px-6 py-3.5 text-right text-slate-600">{r.revenue / 100}</td>

@@ -217,7 +217,7 @@ const ProviderOnboarding: React.FC = () => {
           setCurrentStep(profile.onboardingStep as Step);
           setProgress(profile.onboardingStep * 25);
         }
-      } catch (error: unknown) {
+      } catch (error) {
         toast.error("Failed to initialize onboarding");
       } finally {
         setLoadingServices(false);

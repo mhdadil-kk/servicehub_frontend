@@ -44,7 +44,7 @@ const AdminServices: React.FC = () => {
         setShowModal(false);
         setForm({ name: "", description: "" });
       }
-    } catch (error: unknown) {
+    } catch (error) {
     }
   };
 

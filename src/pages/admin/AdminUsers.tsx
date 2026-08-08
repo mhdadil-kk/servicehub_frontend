@@ -92,6 +92,14 @@ const AdminUsers: React.FC = () => {
           </button>
         </div>
       )
+    },
+    {
+      header: "Total Booking",
+      accessor: (item: IUser)=>(
+        <span className="font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full text-xs">
+          {item.totalBookings || 0} Bookings
+        </span>
+      )
     }
   ];
 

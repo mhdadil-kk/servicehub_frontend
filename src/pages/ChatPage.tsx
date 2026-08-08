@@ -10,11 +10,14 @@ import {
   Loader2,
   Inbox,
   Trash2,
-  ShieldAlert
+  ShieldAlert,
+  ImagePlus,
+  X
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import toast from "react-hot-toast";
 import { useChat } from "../hooks/useChat";
+import { chatApi } from "../api/chat.service";
 import type { Message, Conversation } from "../api/chat.service";
 import { getSocket } from "../socket";
 import ReportModal from "../components/shared/ReportModal";
@@ -39,8 +42,12 @@ const ChatPage: React.FC = () => {
   const [deleteConversationId, setDeleteConversationId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleCloseMenu = () => setContextMenu(null);
@@ -265,17 +272,55 @@ const ChatPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation) return;
+    if ((!newMessage.trim() && !selectedImage) || !selectedConversation) return;
 
     const s = getSocket();
-    s.emit("send_message", {
-      conversationId: selectedConversation._id,
-      content: newMessage.trim()
-    });
 
-    setNewMessage("");
+    if (selectedImage) {
+      try {
+        setIsUploadingImage(true);
+        const res = await chatApi.uploadChatImage(selectedImage);
+        const { imageUrl, imagePublicId } = res.data.data;
+
+        s.emit("send_message", {
+          conversationId: selectedConversation._id,
+          content: newMessage.trim() || "📷 Image",
+          imageUrl,
+          imagePublicId
+        });
+
+        setSelectedImage(null);
+        setImagePreviewUrl(null);
+        setNewMessage("");
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || "Failed to upload image");
+      } finally {
+        setIsUploadingImage(false);
+      }
+    } else {
+      s.emit("send_message", {
+        conversationId: selectedConversation._id,
+        content: newMessage.trim()
+      });
+      setNewMessage("");
+    }
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5MB");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setSelectedImage(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleDeleteMessage = (messageId: string) => {
@@ -519,6 +564,30 @@ const ChatPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
+                      ) : msg.messageType === "image" && !msg.isDeleted ? (
+                        <div className={`max-w-[75%] md:max-w-[55%] rounded-[24px] p-2 shadow-sm relative overflow-hidden transition-colors ${
+                          isMe
+                            ? "bg-blue-600 rounded-br-none"
+                            : "bg-white border border-slate-100 rounded-bl-none"
+                        }`}>
+                          <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer">
+                            <img src={msg.imageUrl} alt="Chat attachment" className="w-full h-auto max-h-[300px] object-cover rounded-[18px]" />
+                          </a>
+                          <div className={`flex items-center justify-end gap-1 text-[9px] mt-1.5 font-semibold px-2 pb-0.5 ${
+                            isMe ? "text-blue-200" : "text-slate-400"
+                          }`}>
+                            <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {isMe && (
+                              msg.read ? (
+                                <CheckCheck size={13} strokeWidth={3} className="text-emerald-400 drop-shadow-sm" />
+                              ) : msg.delivered ? (
+                                <CheckCheck size={11} strokeWidth={2.5} className="text-white/40" />
+                              ) : (
+                                <Check size={11} strokeWidth={2.5} className="text-white/40" />
+                              )
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         <div className={`max-w-[70%] rounded-[24px] px-5 py-3 shadow-sm text-xs leading-relaxed relative transition-colors ${
                           msg.isDeleted
@@ -552,26 +621,65 @@ const ChatPage: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input bar */}
-            <form
-              onSubmit={handleSendMessage}
-              className="p-6 bg-white border-t border-slate-100 shrink-0 flex gap-3"
-            >
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type your message here..."
-                className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 focus:bg-white transition-all"
-              />
-              <button
-                type="submit"
-                disabled={!newMessage.trim()}
-                className="w-12 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-100 hover:scale-[1.03] transition-all disabled:opacity-40"
+            <div className="bg-white border-t border-slate-100 shrink-0 flex flex-col">
+              {imagePreviewUrl && (
+                <div className="px-6 pt-4 pb-2 flex">
+                  <div className="relative inline-block">
+                    <img src={imagePreviewUrl} alt="Preview" className="h-20 w-auto rounded-lg object-cover border border-slate-200 shadow-sm" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedImage(null);
+                        setImagePreviewUrl(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-slate-800 text-white rounded-full flex items-center justify-center hover:bg-rose-500 shadow-md transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <form
+                onSubmit={handleSendMessage}
+                className="px-6 py-4 flex gap-3 items-center"
               >
-                <Send size={16} />
-              </button>
-            </form>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImageSelect} 
+                  accept="image/jpeg, image/png, image/webp" 
+                  className="hidden" 
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingImage}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${
+                    selectedImage ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                  }`}
+                  title="Attach image"
+                >
+                  <ImagePlus size={20} />
+                </button>
+                
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message here..."
+                  disabled={isUploadingImage}
+                  className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={(!newMessage.trim() && !selectedImage) || isUploadingImage}
+                  className="w-12 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-100 hover:scale-[1.03] transition-all disabled:opacity-40 relative"
+                >
+                  {isUploadingImage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </button>
+              </form>
+            </div>
           </>
         ) : (
           <div className="flex-1 flex flex-col justify-center items-center text-center p-12">

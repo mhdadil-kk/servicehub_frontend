@@ -69,7 +69,7 @@ const MyBookings: React.FC = () => {
       await cancelBooking(cancelBookingId, cancelReason);
       setCancelBookingId(null);
       fetchUserBookings();
-    } catch (error: unknown) {
+    } catch (error) {
       const err = error as any;
       toast.error(err.response?.data?.message || "Failed to cancel booking.");
     } finally {

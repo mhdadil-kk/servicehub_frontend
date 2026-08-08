@@ -12,7 +12,7 @@ interface TableProps<T> {
   emptyMessage?: string;
 }
 
-const Table = <T extends { id: string | number }>({
+const Table = <T extends { id?: string | number; _id?: string | number }>({
   data,
   columns,
   isLoading = false,
@@ -46,7 +46,7 @@ const Table = <T extends { id: string | number }>({
           <tr>
             {columns.map((col, idx) => (
               <th
-                key={idx}
+                key={`th-${idx}`}
                 className="px-8 py-5 text-[11px] font-black text-slate-500 uppercase tracking-[0.1em]"
               >
                 {col.header}
@@ -55,20 +55,23 @@ const Table = <T extends { id: string | number }>({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {data.map((item) => (
-            <tr
-              key={item.id}
-              className="hover:bg-blue-50/30 transition-all duration-200 group"
-            >
-              {columns.map((col, idx) => (
-                <td key={idx} className="px-8 py-5 text-[13px] font-semibold text-slate-700">
-                  {typeof col.accessor === "function"
-                    ? col.accessor(item)
-                    : (item[col.accessor] as React.ReactNode)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data.map((item, rowIdx) => {
+            const rowKey = item.id ?? item._id ?? `row-${rowIdx}`;
+            return (
+              <tr
+                key={rowKey}
+                className="hover:bg-blue-50/30 transition-all duration-200 group"
+              >
+                {columns.map((col, colIdx) => (
+                  <td key={`td-${rowKey}-${colIdx}`} className="px-8 py-5 text-[13px] font-semibold text-slate-700">
+                    {typeof col.accessor === "function"
+                      ? col.accessor(item)
+                      : (item[col.accessor] as React.ReactNode)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

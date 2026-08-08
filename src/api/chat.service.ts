@@ -7,8 +7,9 @@ export interface Message {
   bookingId?: string;
   senderId: string;
   senderRole: "user" | "provider";
-  messageType?: "text" | "booking_card";
+  messageType?: "text" | "booking_card" | "image";
   content: string;
+  imageUrl?: string;
   read: boolean;
   delivered?: boolean;
   isDeleted?: boolean;
@@ -49,4 +50,24 @@ export const chatApi = {
 
   deleteConversation: (conversationId: string) =>
     axiosInstance.delete<unknown, ApiResponse<null>>(`/chat/conversations/${conversationId}`),
+
+  uploadChatImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    const token = localStorage.getItem("accessToken");
+    
+    const res = await fetch(`http://localhost:5000/api/chat/upload-image`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: formData
+    });
+    
+    const data = await res.json();
+    if (!res.ok) {
+      throw { response: { data } }; 
+    }
+    return { data };
+  },
 };

@@ -39,7 +39,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: unknown) {
-      const err = error as any;
+      const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || "Failed to change password");
     } finally {
       setLoading(false);
@@ -70,6 +70,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none"
                 placeholder="Enter current password"
               />
@@ -91,6 +92,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
+                autoComplete="new-password"
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none"
                 placeholder="At least 6 characters"
               />
@@ -111,6 +113,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              autoComplete="new-password"
               className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none"
               placeholder="Confirm new password"
             />
