@@ -1,20 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { validateFile, FILE_LIMITS, validateBio, validateHourlyRate, validateBankField } from "../../utils/validation";
 import { useProviderProfile } from "../../hooks/useProviderProfile";
 import { useAuthStore } from "../../store/useAuthStore";
 import toast from "react-hot-toast";
 import { 
-  Camera, RefreshCw, CheckCircle, UploadCloud, ChevronRight, Briefcase, 
+  Camera, RefreshCw, CheckCircle, ChevronRight, Briefcase, 
   User, MapPin, DollarSign, FileText, ExternalLink, Shield, CreditCard, Lock,
   Mail, Phone, AlertTriangle, Clock, Star, Heart, Loader2
 } from "lucide-react";
 import { ChangePasswordModal } from "../../components/ChangePasswordModal";
-import type { Review } from "../../types/provider.types";
+import type { ProviderDocumentEntry } from "../../types/domain.types";
 
 const ProviderProfile: React.FC = () => {
   const { user, setUser } = useAuthStore();
   const {
-    profile, setProfile, services, reviews, loading, saving,
+    profile, services, reviews, loading, saving,
     loadProfile, loadReviews, updateProfile, updateLocation,
     updateServiceDetails, updateBankDetails, uploadDocuments, likeReview: handleLikeReview
   } = useProviderProfile();
@@ -45,7 +45,7 @@ const ProviderProfile: React.FC = () => {
   const [identityError, setIdentityError] = useState("");
   const [licenseError, setLicenseError] = useState("");
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const prof = await loadProfile();
       if (prof) {
@@ -60,7 +60,7 @@ const ProviderProfile: React.FC = () => {
         setAddress(prof.address || "");
         setServiceRadius(prof.serviceRadius || 25);
         
-        const svcId = prof.serviceId?._id || prof.serviceId || "";
+        const svcId = typeof prof.serviceId === 'object' && prof.serviceId ? prof.serviceId._id : (prof.serviceId || "");
         setSelectedServiceId(svcId);
         setHourlyRate(prof.hourlyRate || 0);
 
@@ -87,11 +87,11 @@ const ProviderProfile: React.FC = () => {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [loadProfile, loadReviews, setUser, user]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -213,7 +213,7 @@ const ProviderProfile: React.FC = () => {
       }
 
       loadData();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
     }
   };
@@ -504,10 +504,11 @@ const ProviderProfile: React.FC = () => {
                     <div className="space-y-3">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Shield size={12} /> Existing Documents</label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {profile.documents.map((doc: any, idx: number) => {
-                          const docUrl = doc.url.startsWith("http") 
-                            ? doc.url 
-                            : `http://localhost:5000/${doc.url.replace(/\\/g, "/")}`;
+                        {profile.documents.map((doc: ProviderDocumentEntry, idx: number) => {
+                          const rawUrl = typeof doc === "string" ? doc : doc.url;
+                          const docUrl = rawUrl.startsWith("http") 
+                            ? rawUrl 
+                            : `http://localhost:5000/${rawUrl.replace(/\\/g, "/")}`;
                           return (
                             <a 
                               key={idx}

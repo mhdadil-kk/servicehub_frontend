@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search as SearchIcon, MapPin, Star,
   Check, HelpCircle, ChevronDown, AlertCircle
@@ -13,6 +13,7 @@ import type { Provider } from "../../types/provider.types";
 import { getSimulated } from "../../types/provider.types";
 import ProviderProfileDetail from "./ProviderProfileDetail";
 import BookingModal from "../../components/user/BookingModal";
+import { getErrorMessage } from "../../utils/errors";
 
 const standardIcon = new L.DivIcon({
   className: "",
@@ -122,13 +123,12 @@ const BrowseServices: React.FC = () => {
     services: categories,
     providers,
     total: totalCount,
-    totalPages,
     loading,
     fetchActiveServices,
     browseProviders
   } = useServices();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setError(null);
     try {
       await Promise.all([
@@ -145,12 +145,23 @@ const BrowseServices: React.FC = () => {
           page: currentPage,
         }),
       ]);
-    } catch (err: any) {
-      setError(err.message || "Failed to load providers.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to load providers."));
     }
-  };
+  }, [
+    search,
+    selectedCategory,
+    nearbyActive,
+    userCoords,
+    radius,
+    currentPage,
+    sortBy,
+    sortOrder,
+    fetchActiveServices,
+    browseProviders,
+  ]);
 
-  useEffect(() => { fetchData(); }, [search, selectedCategory, nearbyActive, userCoords, radius, currentPage, sortBy, sortOrder]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const toggleNearby = () => {
     if (nearbyActive) { 

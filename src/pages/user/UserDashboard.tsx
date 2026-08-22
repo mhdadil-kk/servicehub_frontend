@@ -8,6 +8,8 @@ import {
   Loader2
 } from "lucide-react";
 import { useDashboard } from "../../hooks/useDashboard";
+import type { DashboardBookingSummary } from "../../types/domain.types";
+import { getUserName, isPopulatedProvider, isPopulatedService } from "../../types/domain.types";
 
 const UserDashboard: React.FC = () => {
   const { user } = useAuthStore();
@@ -15,7 +17,7 @@ const UserDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchUserDashboard();
-  }, []);
+  }, [fetchUserDashboard]);
 
   if (loading || !data) {
     return (
@@ -79,15 +81,31 @@ const UserDashboard: React.FC = () => {
             </thead>
             <tbody>
               {recentBookings && recentBookings.length > 0 ? (
-                recentBookings.map((booking: any, i: number) => {
-                  const providerName = booking.providerId?.userId?.name || "Unknown Provider";
-                  const serviceName = booking.serviceId?.name || "Service";
+                recentBookings.map((booking: DashboardBookingSummary) => {
+                  const providerName = isPopulatedProvider(booking.providerId)
+                    ? getUserName(
+                        typeof booking.providerId.userId === "object"
+                          ? booking.providerId.userId
+                          : undefined
+                      )
+                    : "Unknown Provider";
+                  const serviceName = isPopulatedService(booking.serviceId)
+                    ? booking.serviceId.name
+                    : "Service";
                   return (
-                    <tr key={i} className="group hover:bg-slate-50/50 transition-colors">
+                    <tr key={booking._id} className="group hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                            <img src={booking.providerId?.profilePhoto || booking.providerId?.userId?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${providerName}`} alt="" />
+                            <img src={
+                              isPopulatedProvider(booking.providerId)
+                                ? booking.providerId.profilePhoto ||
+                                  (typeof booking.providerId.userId === "object"
+                                    ? booking.providerId.userId.profilePhoto
+                                    : undefined) ||
+                                  `https://api.dicebear.com/7.x/initials/svg?seed=${providerName}`
+                                : `https://api.dicebear.com/7.x/initials/svg?seed=${providerName}`
+                            } alt="" />
                           </div>
                           <span className="font-bold text-slate-900 text-sm whitespace-nowrap">{providerName}</span>
                         </div>

@@ -6,9 +6,10 @@ import { Search, Loader2 } from "lucide-react";
 import { adminService } from "../../api/admin.service";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import type { AdminBookingListItem } from "../../types/domain.types";
 
 const AdminBookings: React.FC = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<AdminBookingListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -25,8 +26,9 @@ const AdminBookings: React.FC = () => {
       const res = await adminService.getAllBookings(search, status, sort, page, limit);
       setData(res.data?.bookings || []);
       setTotal(res.data?.total || 0);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to load bookings");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to load bookings";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -42,7 +44,7 @@ const AdminBookings: React.FC = () => {
   const columns = [
     {
       header: "Booking Info",
-      accessor: (item: any) => (
+      accessor: (item: AdminBookingListItem) => (
         <div>
           <p className="font-extrabold text-slate-900 text-xs">ID: {item._id.slice(-6).toUpperCase()}</p>
           <p className="text-[10px] text-slate-400 font-bold uppercase">{item.serviceId?.name}</p>
@@ -51,7 +53,7 @@ const AdminBookings: React.FC = () => {
     },
     {
       header: "Customer",
-      accessor: (item: any) => (
+      accessor: (item: AdminBookingListItem) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
              {item.userId?.profilePhoto ? (
@@ -68,7 +70,7 @@ const AdminBookings: React.FC = () => {
     },
     {
       header: "Provider",
-      accessor: (item: any) => (
+      accessor: (item: AdminBookingListItem) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
              {item.providerId?.profilePhoto || item.providerId?.userId?.profilePhoto ? (
@@ -85,7 +87,7 @@ const AdminBookings: React.FC = () => {
     },
     {
       header: "Date & Time",
-      accessor: (item: any) => (
+      accessor: (item: AdminBookingListItem) => (
         <div>
           <p className="font-bold text-slate-700 text-xs">{item.date}</p>
           <p className="text-[10px] text-slate-400 font-bold">{item.slot?.start} - {item.slot?.end}</p>
@@ -94,7 +96,7 @@ const AdminBookings: React.FC = () => {
     },
     {
       header: "Status",
-      accessor: (item: any) => {
+      accessor: (item: AdminBookingListItem) => {
         const typeMap: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
           pending: 'warning',
           awaiting_payment: 'warning',
@@ -115,7 +117,7 @@ const AdminBookings: React.FC = () => {
     },
     {
       header: "Actions",
-      accessor: (item: any) => (
+      accessor: (item: AdminBookingListItem) => (
         <button 
           onClick={() => navigate(`/admin/bookings/${item._id}`)}
           className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm shadow-blue-100 hover:bg-blue-700 transition-all"

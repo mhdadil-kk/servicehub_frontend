@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { adminService } from "../api/admin.service";
-import type { IUser } from "../types/api.types";
+import type { IUser, IService } from "../types/api.types";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 
@@ -8,16 +8,22 @@ export const useAdmin = () => {
   const [data, setData] = useState<IUser[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit] = useState(3);
+  const [limit] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<IService[]>([]);
 
   const fetchUsers = useCallback(async (search?: string, status?: string, sort?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminService.getAllUsers(search, status, sort, page, limit);
+      const res = await adminService.getAllUsers(
+        search || undefined,
+        status && status !== "all" ? status : undefined,
+        sort || undefined,
+        page,
+        limit
+      );
       setData(res.data?.users || []);
       setTotal(res.data?.total || 0);
     } catch (err: unknown) {
@@ -26,12 +32,17 @@ export const useAdmin = () => {
       setLoading(false);
     }
   }, [page, limit]);
-
   const fetchProviders = useCallback(async (search?: string, status?: string, sort?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminService.getProviders(search, status, sort, page, limit);
+      const res = await adminService.getProviders(
+        search || undefined,
+        status && status !== "all" ? status : undefined,
+        sort || undefined,
+        page,
+        limit
+      );
       setData(res.data?.providers || []);
       setTotal(res.data?.total || 0);
     } catch (err: unknown) {
@@ -52,10 +63,9 @@ export const useAdmin = () => {
       confirmButtonText: "Yes, block it!"
     });
     if (!result.isConfirmed) return false;
-
     try {
       await adminService.deleteUser(id);
-      setData(prev => prev.filter(u => u.id !== id)); 
+      setData(prev => prev.filter(u => u.id !== id));
       toast.success(`${type} blocked successfully`);
       return true;
     } catch (err: unknown) {
@@ -75,7 +85,6 @@ export const useAdmin = () => {
       confirmButtonText: "Yes, restore access"
     });
     if (!result.isConfirmed) return false;
-
     try {
       await adminService.unblockUser(id);
       toast.success(`Access restored for ${type}`);
@@ -98,7 +107,6 @@ export const useAdmin = () => {
       confirmButtonText: `Yes, ${action}`
     });
     if (!result.isConfirmed) return false;
-
     try {
       await adminService.updateProviderStatus(id, status);
       toast.success(`Provider ${action}d successfully`);
@@ -114,10 +122,12 @@ export const useAdmin = () => {
     setError(null);
     try {
       const res = await adminService.getServices();
-      setServices(res.data || []);
-      return res.data || [];
+      const list = Array.isArray(res.data) ? res.data : [];
+      setServices(list);
+      return list;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to fetch services");
+      return [];
     } finally {
       setLoading(false);
     }
@@ -126,7 +136,10 @@ export const useAdmin = () => {
   const addService = useCallback(async (form: { name: string; description: string }) => {
     try {
       const res = await adminService.addService(form);
-      setServices(prev => [...prev, res.data]);
+      const created = res.data?.service;
+      if (created) {
+        setServices(prev => [...prev, created]);
+      }
       toast.success("Service category added successfully");
       return true;
     } catch (err: unknown) {
@@ -145,7 +158,6 @@ export const useAdmin = () => {
       cancelButtonColor: "#d33",
       confirmButtonText: "Yes, delete it!"
     });
-
     if (result.isConfirmed) {
       try {
         await adminService.deleteService(id);
@@ -171,13 +183,13 @@ export const useAdmin = () => {
     }
   }, []);
 
-  const verifyProvider = useCallback(async (id: string, status: 'approved' | 'rejected', remarks?: string) => {
+  const verifyProvider = useCallback(async (id: string, status: "approved" | "rejected", remarks?: string) => {
     try {
       await adminService.verifyProvider(id, status, remarks);
       toast.success(`Provider ${status} successfully`);
       return true;
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : `Failed to verify provider`);
+      toast.error(err instanceof Error ? err.message : "Failed to verify provider");
       return false;
     }
   }, []);
@@ -190,17 +202,17 @@ export const useAdmin = () => {
     loading,
     error,
     setPage,
-    fetchUsers,
-    fetchProviders,
-    blockUser,
-    unblockUser,
-    updateProviderStatus,
     setData,
     services,
+    fetchUsers,
+    fetchProviders,
     fetchAdminServices,
     addService,
     deleteService,
+    blockUser,
+    unblockUser,
+    updateProviderStatus,
     fetchProviderDetail,
-    verifyProvider
+    verifyProvider,
   };
 };

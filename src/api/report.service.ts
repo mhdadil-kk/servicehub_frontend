@@ -1,24 +1,14 @@
-import api from "./axios.instance";
+import axiosInstance from "./axios.instance";
+import { API_ROUTES } from "../constants/api.routes";
+import type { ApiResponse } from "../types/api.types";
+import type { ReportEntity, ReportCategory } from "../types/domain.types";
 
-export interface Report {
-  _id: string;
-  reporterId: any;
-  reportedId: any;
-  bookingId?: any;
-  category: string;
-  description: string;
-  screenshot?: string;
-  status: "pending" | "under_review" | "resolved" | "rejected";
-  adminNotes?: string;
-  actionTaken?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type Report = ReportEntity;
 
 export interface CreateReportPayload {
   reportedId: string;
   bookingId?: string;
-  category: string;
+  category: ReportCategory;
   description: string;
   screenshot?: File;
 }
@@ -28,8 +18,15 @@ export interface ReportActionPayload {
   adminNotes?: string;
 }
 
+export interface ReportsPage {
+  reports: Report[];
+  total: number;
+  page?: number;
+  limit?: number;
+}
+
 export const reportApi = {
-  createReport: async (payload: CreateReportPayload): Promise<Report> => {
+  createReport: (payload: CreateReportPayload) => {
     const formData = new FormData();
     formData.append("reportedId", payload.reportedId);
     formData.append("category", payload.category);
@@ -37,25 +34,32 @@ export const reportApi = {
     if (payload.bookingId) formData.append("bookingId", payload.bookingId);
     if (payload.screenshot) formData.append("screenshot", payload.screenshot);
 
-    const res: any = await api.post("/reports", formData, {
-      headers: { "Content-Type": "multipart/form-data" }
-    });
-    return res.data;
+    return axiosInstance.post<unknown, ApiResponse<Report>>(
+      API_ROUTES.REPORTS.CREATE,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
   },
-  getMyReports: async (): Promise<Report[]> => {
-    const res: any = await api.get("/reports/my");
-    return res.data;
-  },
-  getReportById: async (id: string): Promise<Report> => {
-    const res: any = await api.get(`/reports/${id}`);
-    return res.data;
-  },
-  getAllReports: async (params?: { page?: number; limit?: number; status?: string; search?: string }): Promise<{ reports: Report[]; total: number; page: number; limit: number }> => {
-    const res: any = await api.get("/reports/all", { params });
-    return res.data;
-  },
-  takeAction: async (id: string, payload: ReportActionPayload): Promise<Report> => {
-    const res: any = await api.put(`/reports/${id}/action`, payload);
-    return res.data;
-  },
+
+  getMyReports: () =>
+    axiosInstance.get<unknown, ApiResponse<{ reports: Report[] }>>(
+      API_ROUTES.REPORTS.MY_REPORTS
+    ),
+
+  getReportById: (id: string) =>
+    axiosInstance.get<unknown, ApiResponse<Report>>(
+      API_ROUTES.REPORTS.BY_ID(id)
+    ),
+
+  getAllReports: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+    axiosInstance.get<unknown, ApiResponse<ReportsPage>>(
+      API_ROUTES.REPORTS.ALL,
+      { params }
+    ),
+
+  takeAction: (id: string, payload: ReportActionPayload) =>
+    axiosInstance.put<unknown, ApiResponse<Report>>(
+      API_ROUTES.REPORTS.ACTION(id),
+      payload
+    ),
 };

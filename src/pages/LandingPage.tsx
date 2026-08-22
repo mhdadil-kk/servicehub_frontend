@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { useServices } from '../hooks/useServices';
 import { useAuthStore } from '../store/useAuthStore';
+import type { IService } from '../types/api.types';
+import type { Provider } from '../types/provider.types';
 
 const getCategoryIcon = (name: string) => {
   const n = name.toLowerCase();
@@ -28,8 +30,8 @@ const getCategoryColor = (index: number) => {
 };
 
 const LandingPage: React.FC = () => {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [featuredProviders, setFeaturedProviders] = useState<any[]>([]);
+  const [categories, setCategories] = useState<IService[]>([]);
+  const [featuredProviders, setFeaturedProviders] = useState<Provider[]>([]);
   const { fetchActiveServices, browseProviders, loading } = useServices();
   const { isAuthenticated, user } = useAuthStore();
 
@@ -47,7 +49,7 @@ const LandingPage: React.FC = () => {
       }
     };
     fetchLandingData();
-  }, []);
+  }, [fetchActiveServices, browseProviders]);
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans">

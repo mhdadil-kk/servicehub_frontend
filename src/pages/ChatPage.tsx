@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   MessageSquare,
@@ -18,7 +18,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import toast from "react-hot-toast";
 import { useChat } from "../hooks/useChat";
 import { chatApi } from "../api/chat.service";
-import type { Message, Conversation } from "../api/chat.service";
+import type { Message, Conversation, Participant } from "../api/chat.service";
 import { getSocket } from "../socket";
 import ReportModal from "../components/shared/ReportModal";
 
@@ -102,7 +102,8 @@ const ChatPage: React.FC = () => {
       });
 
       setDeleteConversationId(null);
-    } catch {
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete chat.");
     }
   };
 
@@ -133,11 +134,7 @@ const ChatPage: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    fetchChatList();
-  }, []);
-
-  const fetchChatList = async () => {
+  const fetchChatList = useCallback(async () => {
     const list = await fetchConversations();
     const qBookingId = searchParams.get("bookingId");
     const qConversationId = searchParams.get("conversationId");
@@ -157,7 +154,11 @@ const ChatPage: React.FC = () => {
         setSearchParams({ conversationId: list[0]._id });
       }
     }
-  };
+  }, [fetchConversations, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    fetchChatList();
+  }, [fetchChatList]);
 
   useEffect(() => {
     const qBookingId = searchParams.get("bookingId");
@@ -175,7 +176,7 @@ const ChatPage: React.FC = () => {
         setSelectedConversation(found);
       }
     }
-  }, [searchParams, conversations]);
+  }, [searchParams, conversations, selectedConversation?._id]);
 
   useEffect(() => {
     if (selectedConversation) {
@@ -266,7 +267,7 @@ const ChatPage: React.FC = () => {
         s.emit("mark_read", selectedConversation._id);
       };
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, loadChatHistory, setConversations, setMessages, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -294,8 +295,9 @@ const ChatPage: React.FC = () => {
         setSelectedImage(null);
         setImagePreviewUrl(null);
         setNewMessage("");
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || "Failed to upload image");
+      } catch (err: unknown) {
+        const errorMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to upload image";
+        toast.error(errorMsg);
       } finally {
         setIsUploadingImage(false);
       }
@@ -392,7 +394,7 @@ const ChatPage: React.FC = () => {
                       />
                     </div>
                     {(() => {
-                      const partner = c.participants.find((p: any) => p._id !== user?.id);
+                      const partner = c.participants.find((p: Participant) => p._id !== user?.id);
                       const isOnline = partner && onlineUsers.has(partner._id);
                       return (
                         <span
@@ -437,7 +439,7 @@ const ChatPage: React.FC = () => {
             <div className="bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 {(() => {
-                  const headerPartner = selectedConversation.participants.find((p: any) => p._id !== user?.id);
+                  const headerPartner = selectedConversation.participants.find((p: Participant) => p._id !== user?.id);
                   const headerOnline = headerPartner && onlineUsers.has(headerPartner._id);
                   return (
                     <div className="relative w-10 h-10 shrink-0">
@@ -465,7 +467,7 @@ const ChatPage: React.FC = () => {
                     </span>
                   </div>
                   {(() => {
-                    const hp = selectedConversation.participants.find((p: any) => p._id !== user?.id);
+                    const hp = selectedConversation.participants.find((p: Participant) => p._id !== user?.id);
                     const hp_online = hp && onlineUsers.has(hp._id);
                     return (
                       <p className={`text-[10px] font-bold flex items-center gap-1 mt-0.5 ${hp_online ? "text-emerald-500" : "text-slate-400"}`}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   X, 
   Calendar as CalendarIcon, 
@@ -15,6 +15,7 @@ import type { AvailableSlot } from "../../api/booking.service";
 import { addressApi } from "../../api/address.service";
 import type { Address } from "../../api/address.service";
 import type { Provider } from "../../types/provider.types";
+import { getErrorMessage } from "../../utils/errors";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -59,6 +60,42 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
   const todayStr = new Date().toISOString().split("T")[0];
 
+  const fetchAvailableSlots = useCallback(async () => {
+    if (!selectedDate) return;
+    try {
+      setIsLoadingSlots(true);
+      setSelectedSlot(null);
+      const res = await bookingApi.getAvailableSlots(provider._id, selectedDate);
+      setSlots(res.data || []);
+    } catch {
+      toast.error("Failed to load availability slots.");
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  }, [provider._id, selectedDate]);
+
+  const fetchAddresses = useCallback(async () => {
+    try {
+      setIsLoadingAddresses(true);
+      const res = await addressApi.getAddresses();
+      const addrList = res.data || [];
+      setAddresses(addrList);
+
+      const defaultAddr = addrList.find(a => a.isDefault);
+      if (initialAddressId) {
+        setSelectedAddressId(initialAddressId);
+      } else if (defaultAddr) {
+        setSelectedAddressId(defaultAddr._id);
+      } else if (addrList.length > 0) {
+        setSelectedAddressId(addrList[0]._id);
+      }
+    } catch {
+      toast.error("Failed to load addresses.");
+    } finally {
+      setIsLoadingAddresses(false);
+    }
+  }, [initialAddressId]);
+
   useEffect(() => {
     if (isOpen) {
       setStep(1);
@@ -68,48 +105,13 @@ const BookingModal: React.FC<BookingModalProps> = ({
       setShowAddAddressForm(false);
       fetchAddresses();
     }
-  }, [isOpen, initialNotes]);
+  }, [isOpen, initialNotes, fetchAddresses]);
 
   useEffect(() => {
     if (selectedDate) {
       fetchAvailableSlots();
     }
-  }, [selectedDate]);
-
-  const fetchAvailableSlots = async () => {
-    try {
-      setIsLoadingSlots(true);
-      setSelectedSlot(null);
-      const res = await bookingApi.getAvailableSlots(provider._id, selectedDate);
-      setSlots(res.data || []);
-    } catch (error) {
-      toast.error("Failed to load availability slots.");
-    } finally {
-      setIsLoadingSlots(false);
-    }
-  };
-
-  const fetchAddresses = async () => {
-    try {
-      setIsLoadingAddresses(true);
-      const res = await addressApi.getAddresses();
-      const addrList = res.data || [];
-      setAddresses(addrList);
-      
-      const defaultAddr = addrList.find(a => a.isDefault);
-      if (initialAddressId) {
-        setSelectedAddressId(initialAddressId);
-      } else if (defaultAddr) {
-        setSelectedAddressId(defaultAddr._id);
-      } else if (addrList.length > 0) {
-        setSelectedAddressId(addrList[0]._id);
-      }
-    } catch (error) {
-      toast.error("Failed to load addresses.");
-    } finally {
-      setIsLoadingAddresses(false);
-    }
-  };
+  }, [selectedDate, fetchAvailableSlots]);
 
   const handleResolveCoords = async () => {
     if (!fullAddress || fullAddress.trim().length < 5) return;
@@ -171,7 +173,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
       if (newAddr) {
         setSelectedAddressId(newAddr._id);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save address.");
     } finally {
       setIsGeocoding(false);
@@ -214,8 +216,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
         onClose();
       }
     } catch (error: unknown) {
-      const err = error as any;
-      toast.error(err.response?.data?.message || "Failed to create booking.");
+      toast.error(getErrorMessage(error, "Failed to create booking."));
     } finally {
       setIsSubmitting(false);
     }

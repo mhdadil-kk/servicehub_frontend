@@ -1,4 +1,6 @@
 
+import type { ProviderDocumentEntry } from "./domain.types";
+
 export interface Provider {
   _id: string;
   userId: { _id: string; name: string; email: string; phone?: string; profilePhoto?: string };
@@ -11,6 +13,16 @@ export interface Provider {
   location?: { type: string; coordinates: number[] }; 
   averageRating?: number;
   totalReviews?: number;
+  onboardingStatus?: "pending" | "in_review" | "approved" | "rejected" | string;
+  onboardingStep?: number;
+  rejectionReason?: string;
+  documents?: ProviderDocumentEntry[];
+  bankDetails?: {
+    accountHolderName?: string;
+    bankName?: string;
+    accountNumber?: string;
+    routingNumber?: string;
+  };
 }
 
 export interface Review {

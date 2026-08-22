@@ -1,60 +1,86 @@
 import { useState, useCallback } from "react";
-import { reviewService } from "../api/review.service";
-import type { Review } from "../types/provider.types";
+import {
+  reportApi,
+  type Report,
+  type CreateReportPayload,
+  type ReportActionPayload,
+} from "../api/report.service";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../utils/errors";
 
-export const useReviews = () => {
-  const [reviews, setReviews] = useState<Review[]>([]);
+export const useReports = () => {
+  const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [total, setTotal] = useState(0);
 
-  const fetchProviderReviews = useCallback(async (providerId: string, page = 1, limit = 10) => {
+  const fetchMyReports = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await reviewService.getProviderReviews(providerId, page, limit);
-      setReviews(res.data?.reviews || []);
-      return res.data;
-    } catch (error) {
-      toast.error("Failed to load reviews.");
-      throw error;
+      const res = await reportApi.getMyReports();
+
+      const list = res.data?.reports || [];
+      setReports(list);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to fetch reports"));
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const createReview = useCallback(async (data: { bookingId: string; rating: number; reviewText: string }) => {
+  const fetchAllReports = useCallback(async (page = 1, status?: string, search?: string) => {
+    setLoading(true);
     try {
-      setIsSubmitting(true);
-      const res = await reviewService.createReview(data);
-      toast.success("Review submitted successfully!");
-      return res.data;
-    } catch (error) {
-      toast.error("Failed to submit review.");
-      throw error;
+      const res = await reportApi.getAllReports({ page, limit: 10, status, search });
+
+      setReports(res.data?.reports || []);
+      setTotal(res.data?.total || 0);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to fetch reports"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const submitReport = async (payload: CreateReportPayload): Promise<boolean> => {
+    setIsSubmitting(true);
+    try {
+      await reportApi.createReport(payload);
+      toast.success("Report submitted successfully.");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to submit report"));
+      return false;
     } finally {
       setIsSubmitting(false);
     }
-  }, []);
+  };
 
-  const likeReview = useCallback(async (reviewId: string) => {
+  const takeAction = async (id: string, payload: ReportActionPayload): Promise<Report | null> => {
+    setIsSubmitting(true);
     try {
-      const res = await reviewService.likeReview(reviewId);
-      setReviews(prev =>
-        prev.map(r => r._id === reviewId ? { ...r, likedByProvider: !r.likedByProvider } : r)
-      );
-      return res.data;
-    } catch (error) {
-      toast.error("Failed to update review.");
-      throw error;
+      const res = await reportApi.takeAction(id, payload);
+      const updated = res.data;
+      if (!updated) throw new Error("No data returned");
+      toast.success("Action taken successfully.");
+      setReports(prev => prev.map(r => (r._id === id ? updated : r)));
+      return updated;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update report"));
+      return null;
+    } finally {
+      setIsSubmitting(false);
     }
-  }, []);
+  };
 
   return {
-    reviews,
+    reports,
     loading,
     isSubmitting,
-    fetchProviderReviews,
-    createReview,
-    likeReview,
+    total,
+    fetchMyReports,
+    fetchAllReports,
+    submitReport,
+    takeAction,
   };
 };

@@ -41,7 +41,7 @@ const AddressBook: React.FC = () => {
 
   useEffect(() => {
     fetchAddresses();
-  }, []);
+  }, [fetchAddresses]);
 
   const handleOpenAddModal = () => {
     setEditId(null);
@@ -105,7 +105,7 @@ const AddressBook: React.FC = () => {
           if (data && data.display_name) {
             setFullAddress(data.display_name);
           }
-        } catch (e) {
+        } catch {
           toast.error("Failed to resolve address from coordinates.");
         } finally {
           setIsGeocoding(false);

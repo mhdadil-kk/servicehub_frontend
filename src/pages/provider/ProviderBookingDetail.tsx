@@ -27,18 +27,11 @@ import { generateInvoicePDF } from "../../utils/pdf";
 import ReportModal from "../../components/shared/ReportModal";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { patchLeafletDefaultIcon } from "../../utils/leaflet-icon";
+import { isPopulatedProvider, isPopulatedService } from "../../types/domain.types";
+import { getId } from "../../types/domain.types";
 
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-});
+patchLeafletDefaultIcon();
 
 const statusConfig: Record<
   string,
@@ -153,8 +146,8 @@ const ProviderBookingDetail: React.FC = () => {
 
   useEffect(() => {
     if (rescheduleDate && booking) {
-      const providerInfo: any = booking.providerId;
-      fetchAvailableSlots(providerInfo._id || providerInfo, rescheduleDate);
+      const providerId = getId(booking.providerId);
+      if (providerId) fetchAvailableSlots(providerId, rescheduleDate);
     }
   }, [rescheduleDate, booking, fetchAvailableSlots]);
 
@@ -171,15 +164,15 @@ const ProviderBookingDetail: React.FC = () => {
         setIsLoading(false);
       }
     })();
-  }, [bookingId]);
+  }, [bookingId, getBookingDetail]);
 
   useEffect(() => {
     if (booking) {
-      const providerInfo: any = typeof booking.providerId === "object" ? booking.providerId : null;
-      if (providerInfo && providerInfo.hourlyRate) {
+      const providerInfo = isPopulatedProvider(booking.providerId) ? booking.providerId : null;
+      if (providerInfo?.hourlyRate) {
         setInvoiceBaseCharge(providerInfo.hourlyRate.toString());
-      } else if (booking.serviceId && typeof booking.serviceId === "object" && (booking.serviceId as any).basePrice) {
-        setInvoiceBaseCharge((booking.serviceId as any).basePrice.toString());
+      } else if (isPopulatedService(booking.serviceId) && booking.serviceId.basePrice) {
+        setInvoiceBaseCharge(booking.serviceId.basePrice.toString());
       }
     }
   }, [booking]);
@@ -193,6 +186,7 @@ const ProviderBookingDetail: React.FC = () => {
         setBooking(detail);
       }
     } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 
@@ -207,6 +201,7 @@ const ProviderBookingDetail: React.FC = () => {
         toast.success("Arrival marked. Customer can see the OTP now.");
       }
     } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 
@@ -221,6 +216,7 @@ const ProviderBookingDetail: React.FC = () => {
         setBooking(detail);
       }
     } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 
@@ -239,6 +235,7 @@ const ProviderBookingDetail: React.FC = () => {
         toast.success("Invoice saved. Customer can see the Completion OTP.");
       }
     } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 
@@ -253,6 +250,7 @@ const ProviderBookingDetail: React.FC = () => {
         setBooking(detail);
       }
     } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 
@@ -270,6 +268,7 @@ const ProviderBookingDetail: React.FC = () => {
         navigate(`/provider/bookings/${res._id}`);
       }
     } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 
@@ -289,6 +288,7 @@ const ProviderBookingDetail: React.FC = () => {
         setBooking(detail);
       }
     } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 

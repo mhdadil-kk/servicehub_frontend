@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useBooking } from "../../hooks/useBooking";
 import type { Booking } from "../../api/booking.service";
-import ReportModal from "../../components/shared/ReportModal";
+import { isPopulatedUser } from "../../types/domain.types";
 
 const ProviderBookings: React.FC = () => {
   const { bookings, isLoadingBookings: isLoading, fetchProviderBookings, acceptBooking, cancelBooking } = useBooking();
@@ -33,13 +33,14 @@ const ProviderBookings: React.FC = () => {
 
   useEffect(() => {
     fetchProviderBookings();
-  }, []);
+  }, [fetchProviderBookings]);
 
   const handleAccept = async (id: string) => {
     try {
       await acceptBooking(id);
       fetchProviderBookings();
-    } catch (error) {
+    } catch {
+      toast.error("Failed to accept booking.");
     }
   };
 
@@ -57,7 +58,7 @@ const ProviderBookings: React.FC = () => {
       await cancelBooking(actionBookingId, cancelReason);
       setActionBookingId(null);
       fetchProviderBookings();
-    } catch (error) {
+    } catch {
       toast.error("Failed to decline booking.");
     } finally {
       setIsSubmittingAction(false);
@@ -360,13 +361,13 @@ const ProviderBookings: React.FC = () => {
       )}
 
       {/* --- REPORT MODAL --- */}
-      {reportBooking && typeof reportBooking.userId === "object" && (
+      {reportBooking && isPopulatedUser(reportBooking.userId) && (
         <ReportModal
           isOpen={!!reportBooking}
           onClose={() => setReportBooking(null)}
-          reportedId={(reportBooking.userId as any)._id}
+          reportedId={reportBooking.userId._id}
           bookingId={reportBooking._id}
-          reportedName={(reportBooking.userId as any).name || "Customer"}
+          reportedName={reportBooking.userId.name || "Customer"}
         />
       )}
     </div>

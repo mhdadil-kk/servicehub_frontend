@@ -25,6 +25,38 @@ import { usePayment } from "../../hooks/usePayment";
 import BookingModal from "../../components/user/BookingModal";
 import ReportModal from "../../components/shared/ReportModal";
 import type { Provider } from "../../types/provider.types";
+import type { PopulatedAddress, PopulatedProviderProfile } from "../../types/domain.types";
+import {
+  isPopulatedProvider,
+  isPopulatedUser,
+  isPopulatedService,
+  isPopulatedAddress,
+} from "../../types/domain.types";
+import { getErrorMessage } from "../../utils/errors";
+
+function populatedProviderToModalProvider(p: PopulatedProviderProfile): Provider {
+  const user = isPopulatedUser(p.userId)
+    ? p.userId
+    : { _id: typeof p.userId === "string" ? p.userId : "", name: "Provider", email: "" };
+  const service = isPopulatedService(p.serviceId)
+    ? { _id: p.serviceId._id, name: p.serviceId.name, description: p.serviceId.description }
+    : undefined;
+  return {
+    _id: p._id,
+    userId: {
+      _id: user._id,
+      name: user.name,
+      email: user.email ?? "",
+      phone: user.phone,
+      profilePhoto: user.profilePhoto ?? p.profilePhoto,
+    },
+    profilePhoto: p.profilePhoto,
+    bio: p.bio,
+    serviceId: service,
+    hourlyRate: p.hourlyRate,
+    address: p.address,
+  };
+}
 
 const MyBookings: React.FC = () => {
   const { bookings, isLoadingBookings: isLoading, fetchUserBookings, cancelBooking, acceptReschedule, rejectReschedule } = useBooking();
@@ -44,7 +76,7 @@ const MyBookings: React.FC = () => {
 
   useEffect(() => {
     fetchUserBookings();
-  }, []);
+  }, [fetchUserBookings]);
 
   const handleCancelClick = (b: Booking) => {
     const bookingDateTime = new Date(`${b.date}T${b.slot.start}:00`);
@@ -70,8 +102,7 @@ const MyBookings: React.FC = () => {
       setCancelBookingId(null);
       fetchUserBookings();
     } catch (error) {
-      const err = error as any;
-      toast.error(err.response?.data?.message || "Failed to cancel booking.");
+      toast.error(getErrorMessage(error, "Failed to cancel booking."));
     } finally {
       setIsCancelling(false);
     }
@@ -101,7 +132,7 @@ const MyBookings: React.FC = () => {
       } else {
         throw new Error("Missing checkout URL");
       }
-    } catch (error) {
+    } catch {
       toast.dismiss();
       toast.error("Failed to initiate payment");
     }
@@ -228,10 +259,13 @@ const MyBookings: React.FC = () => {
 
           <div className="divide-y divide-slate-50">
             {filteredBookings.map((booking, idx) => {
-              const providerInfo = typeof booking.providerId === "object" ? booking.providerId : null;
-              const serviceInfo = typeof booking.serviceId === "object" ? booking.serviceId : null;
-              const addressInfo = typeof booking.addressId === "object" ? booking.addressId : null;
-              const providerUser = (providerInfo as any)?.userId;
+              const rawProvider = (booking as unknown as { provider?: PopulatedProviderProfile }).provider || booking.providerId;
+              const rawService = (booking as unknown as { service?: PopulatedService }).service || booking.serviceId;
+              const providerInfo = isPopulatedProvider(rawProvider) ? rawProvider : null;
+              const serviceInfo = isPopulatedService(rawService) ? rawService : null;
+const addressInfo = isPopulatedAddress(booking.address || booking.addressId)
+  ? (booking.address || booking.addressId) as PopulatedAddress
+  : null;              const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? providerInfo.userId : null;
               const sc = statusConfig[booking.status] ?? statusConfig["pending"];
               const canAct = ["pending", "awaiting_payment", "confirmed"].includes(booking.status);
 
@@ -244,7 +278,7 @@ const MyBookings: React.FC = () => {
                     <div className="relative shrink-0">
                       <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-sm">
                         <img
-                          src={(providerInfo as any)?.profilePhoto || providerUser?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${providerUser?.name || "P"}`}
+                          src={providerInfo?.profilePhoto || providerUser?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${providerUser?.name || "P"}`}
                           alt={providerUser?.name}
                           className="w-full h-full object-cover"
                         />
@@ -257,7 +291,7 @@ const MyBookings: React.FC = () => {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-black text-slate-900 truncate">{providerUser?.name || "Professional"}</p>
-                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest truncate mt-0.5">{(serviceInfo as any)?.name || "Service"}</p>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest truncate mt-0.5">{serviceInfo?.name || "Service"}</p>
                     </div>
                   </div>
 
@@ -275,13 +309,13 @@ const MyBookings: React.FC = () => {
                     <div className="min-w-0">
                       {addressInfo ? (
                         <>
-                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">{(addressInfo as any).label}</p>
-                          <p className="text-[10px] font-medium text-slate-400 truncate" title={(addressInfo as any).fullAddress}>{(addressInfo as any).fullAddress}</p>
+                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">{addressInfo.label}</p>
+                          <p className="text-[10px] font-medium text-slate-400 truncate" title={addressInfo.fullAddress}>{addressInfo.fullAddress}</p>
                         </>
-                      ) : (providerInfo as any)?.address ? (
+                      ) : providerInfo?.address ? (
                         <>
                           <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Provider's Address</p>
-                          <p className="text-[10px] font-medium text-slate-400 truncate" title={(providerInfo as any).address}>{(providerInfo as any).address}</p>
+                          <p className="text-[10px] font-medium text-slate-400 truncate" title={providerInfo.address}>{providerInfo.address}</p>
                         </>
                       ) : (
                         <p className="text-[10px] text-slate-400 font-medium">—</p>
@@ -335,7 +369,7 @@ const MyBookings: React.FC = () => {
                                 await acceptReschedule(booking._id);
                                 fetchUserBookings();
                                 toast.success("Reschedule accepted!", { id: "reschedule" });
-                              } catch (e) {
+                              } catch {
                                 toast.error("Failed to accept", { id: "reschedule" });
                               }
                               setOpenMenuId(null);
@@ -348,7 +382,7 @@ const MyBookings: React.FC = () => {
                                 await rejectReschedule(booking._id);
                                 fetchUserBookings();
                                 toast.success("Reschedule rejected", { id: "reschedule" });
-                              } catch (e) {
+                              } catch {
                                 toast.error("Failed to reject", { id: "reschedule" });
                               }
                               setOpenMenuId(null);
@@ -418,21 +452,21 @@ const MyBookings: React.FC = () => {
         <BookingModal
           isOpen={!!rescheduleBooking}
           onClose={() => setRescheduleBooking(null)}
-          provider={typeof rescheduleBooking.providerId === "object" ? (rescheduleBooking.providerId as unknown as Provider) : ({} as Provider)}
+          provider={isPopulatedProvider(rescheduleBooking.providerId) ? populatedProviderToModalProvider(rescheduleBooking.providerId) : ({} as Provider)}
           rescheduleBookingId={rescheduleBooking._id}
-          initialAddressId={typeof rescheduleBooking.addressId === "object" ? (rescheduleBooking.addressId as any)._id : rescheduleBooking.addressId}
+          initialAddressId={isPopulatedAddress(rescheduleBooking.addressId) ? rescheduleBooking.addressId._id : typeof rescheduleBooking.addressId === "string" ? rescheduleBooking.addressId : undefined}
           initialNotes={rescheduleBooking.notes}
           onSuccess={() => { setRescheduleBooking(null); fetchUserBookings(); }}
         />
       )}
       {/* ── REPORT MODAL ── */}
-      {reportBooking && typeof reportBooking.providerId === "object" && (
+      {reportBooking && isPopulatedProvider(reportBooking.providerId) && isPopulatedUser(reportBooking.providerId.userId) && (
         <ReportModal
           isOpen={!!reportBooking}
           onClose={() => setReportBooking(null)}
-          reportedId={(reportBooking.providerId as any).userId._id || (reportBooking.providerId as any).userId}
+          reportedId={reportBooking.providerId.userId._id}
           bookingId={reportBooking._id}
-          reportedName={(reportBooking.providerId as any).userId.name || "Provider"}
+          reportedName={reportBooking.providerId.userId.name || "Provider"}
         />
       )}
     </div>

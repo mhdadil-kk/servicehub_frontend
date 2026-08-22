@@ -4,62 +4,11 @@ import { Users, Briefcase, CalendarCheck, Wallet, ArrowUpRight, Loader2 } from "
 import { adminService } from "../../api/admin.service";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-
-/* ────────── User Growth Bar Chart ────────── */
-const UserGrowthChart: React.FC<{ data: { month: string; value: number }[] }> = ({ data }) => {
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2">
-        <Users size={36} className="opacity-25" />
-        <p className="text-sm font-medium">No user data for this period</p>
-      </div>
-    );
-  }
-
-  const maxVal = Math.max(...data.map((d) => d.value), 1);
-  const CHART_H = 160; // px
-
-  return (
-    <div className="flex-1 flex flex-col">
-      {/* bars area */}
-      <div className="flex items-end gap-2 flex-1" style={{ minHeight: `${CHART_H}px` }}>
-        {data.map((item, idx) => {
-          const barHeightPx = Math.max(Math.round((item.value / maxVal) * CHART_H), item.value > 0 ? 6 : 2);
-          return (
-            <div key={idx} className="flex-1 flex flex-col items-center gap-1 group">
-              {/* value label */}
-              <span className="text-[10px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                {item.value}
-              </span>
-              {/* bar */}
-              <div
-                className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 transition-all duration-700 ease-out group-hover:from-blue-700 group-hover:to-blue-500 relative"
-                style={{ height: `${barHeightPx}px` }}
-              />
-            </div>
-          );
-        })}
-      </div>
-      {/* x-axis labels */}
-      <div className="flex gap-2 mt-2">
-        {data.map((item, idx) => (
-          <div key={idx} className="flex-1 text-center">
-            <span className="text-[9px] font-bold text-slate-400 uppercase leading-tight block">
-              {item.month.split(" ")[0]}
-            </span>
-            <span className="text-[9px] text-slate-300 block">
-              {item.month.split(" ")[1]}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+import type { AdminDashboardStats } from "../../types/domain.types";
 
 /* ────────── Main Page ────────── */
 const AdminDashboard: React.FC = () => {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<"all" | "year" | "month">("all");
   const navigate = useNavigate();
@@ -70,7 +19,7 @@ const AdminDashboard: React.FC = () => {
         setLoading(true);
         const res = await adminService.getDashboardStats(timeRange);
         setStats(res.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
         toast.error("Failed to load dashboard stats");
       } finally {
@@ -169,8 +118,8 @@ const AdminDashboard: React.FC = () => {
             <div className="flex-1 flex flex-col">
               {/* Bars */}
               <div className="flex items-end gap-3" style={{ height: "180px" }}>
-                {userGrowth.map((item: any, idx: number) => {
-                  const maxVal = Math.max(...userGrowth.map((d: any) => Math.max(d.users || 0, d.providers || 0)), 1);
+                {userGrowth.map((item, idx: number) => {
+                  const maxVal = Math.max(...userGrowth.map((d) => Math.max(d.users || 0, d.providers || 0)), 1);
                   const userH = Math.max(Math.round(((item.users || 0) / maxVal) * 160), (item.users || 0) > 0 ? 6 : 2);
                   const provH = Math.max(Math.round(((item.providers || 0) / maxVal) * 160), (item.providers || 0) > 0 ? 6 : 2);
                   return (
@@ -200,7 +149,7 @@ const AdminDashboard: React.FC = () => {
               </div>
               {/* X-axis labels */}
               <div className="flex gap-3 mt-3 border-t border-slate-100 pt-3">
-                {userGrowth.map((item: any, idx: number) => {
+                {userGrowth.map((item, idx: number) => {
                   const parts = item.label.split(" ");
                   return (
                     <div key={idx} className="flex-1 text-center">

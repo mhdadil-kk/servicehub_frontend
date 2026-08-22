@@ -4,7 +4,6 @@ import {
   User as UserIcon,
   Mail,
   Phone,
-  ShieldCheck,
   BadgeCheck,
   Bell,
   Lock,
@@ -13,9 +12,10 @@ import {
 import toast from "react-hot-toast";
 import { useAuth } from "../../hooks/useAuth";
 import { ChangePasswordModal } from "../../components/ChangePasswordModal";
+import { getErrorMessage } from "../../utils/errors";
 
 const UserProfile: React.FC = () => {
-  const { user, setUser } = useAuthStore();
+  const { user } = useAuthStore();
   const { updateProfile } = useAuth();
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
@@ -40,8 +40,8 @@ const UserProfile: React.FC = () => {
     try {
       await updateProfile({ name, phone });
       toast.success("Profile updated successfully!");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update profile");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update profile"));
     } finally {
       setLoading(false);
     }

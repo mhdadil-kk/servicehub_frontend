@@ -36,7 +36,9 @@ const ForgotPassword: React.FC = () => {
     try {
       await forgotPassword(email);
       setIsSent(true);
-    } catch {
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to send reset link.";
+      toast.error(msg);
     }
   };
 

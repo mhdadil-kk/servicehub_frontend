@@ -19,12 +19,10 @@ export const usePayment = () => {
   }, []);
 
   const verifyPayment = useCallback(async (sessionId: string, bookingId: string) => {
+    setIsProcessing(true);
     try {
-      setIsProcessing(true);
       const res = await paymentApi.verifyPayment(sessionId, bookingId);
       return res.data;
-    } catch (error) {
-      throw error;
     } finally {
       setIsProcessing(false);
     }

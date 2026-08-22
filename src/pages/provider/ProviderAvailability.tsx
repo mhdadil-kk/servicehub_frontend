@@ -132,55 +132,52 @@ const ProviderAvailability: React.FC = () => {
     });
   };
 
-  useEffect(() => {
-    fetchAvailability();
-  }, []);
-
-
-
-  const fetchAvailability = async () => {
+  const fetchAvailability = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await getAvailability();
 
-    if (data?.startDate) {
-      setStartDate(data.startDate);
-    } else {
-      setStartDate("");
+      if (data?.startDate) {
+        setStartDate(data.startDate);
+      } else {
+        setStartDate("");
+      }
+      if (data?.endDate) {
+        setEndDate(data.endDate);
+      } else {
+        setEndDate("");
+      }
+
+      if (data?.weeklySchedule) {
+        const mergedSchedule: WeeklySchedule = {
+          ...defaultSchedule,
+          ...data.weeklySchedule,
+        };
+
+        Object.keys(mergedSchedule).forEach((day) => {
+          mergedSchedule[day].isAvailable =
+            mergedSchedule[day].slots?.length > 0;
+        });
+
+        setSchedule(mergedSchedule);
+      } else {
+        setSchedule(defaultSchedule);
+      }
+
+      if (data?.overrides) {
+        setOverrides(data.overrides);
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error("Failed to load availability.");
+    } finally {
+      setIsLoading(false);
     }
-    if (data?.endDate) {
-      setEndDate(data.endDate);
-    } else {
-      setEndDate("");
-    }
+  }, [getAvailability]);
 
-    if (data?.weeklySchedule) {
-      const mergedSchedule: WeeklySchedule = {
-        ...defaultSchedule,
-        ...data.weeklySchedule,
-      };
-
-      Object.keys(mergedSchedule).forEach((day) => {
-        mergedSchedule[day].isAvailable =
-          mergedSchedule[day].slots?.length > 0;
-      });
-
-      setSchedule(mergedSchedule);
-    } else {
-      setSchedule(defaultSchedule);
-    }
-
-    if (data?.overrides) {
-      setOverrides(data.overrides);
-    }
-  } catch (error) {
-    console.log(error);
-
-    toast.error("Failed to load availability.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  useEffect(() => {
+    fetchAvailability();
+  }, [fetchAvailability]);
 
 
 
@@ -466,6 +463,7 @@ const ProviderAvailability: React.FC = () => {
       });
 
     } catch {
+      toast.error("Failed to save availability.");
     } finally {
       setIsSaving(false);
     }

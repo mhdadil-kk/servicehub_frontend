@@ -10,13 +10,15 @@ import {
   Loader2,
 } from "lucide-react";
 
+import type { DashboardBookingSummary } from "../../types/domain.types";
+
 const ProviderDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { data, loading, fetchProviderDashboard } = useDashboard();
 
   useEffect(() => {
     fetchProviderDashboard();
-  }, []);
+  }, [fetchProviderDashboard]);
 
   if (loading || !data) {
     return (
@@ -96,9 +98,10 @@ const ProviderDashboard: React.FC = () => {
             </thead>
             <tbody>
               {recentBookings && recentBookings.length > 0 ? (
-                recentBookings.map((booking: any, i: number) => {
-                  const customerName = booking.userId?.name || "Customer";
-                  const serviceName = booking.serviceId?.name || "Service";
+                recentBookings.map((booking: DashboardBookingSummary, i: number) => {
+                  const customerName = (typeof booking.userId === "object" && booking.userId?.name) ? booking.userId.name : "Customer";
+                  const customerPhoto = (typeof booking.userId === "object" && booking.userId?.profilePhoto) ? booking.userId.profilePhoto : undefined;
+                  const serviceName = (typeof booking.serviceId === "object" && booking.serviceId?.name) ? booking.serviceId.name : "Service";
                   const statusCls = statusConfig[booking.status] || "bg-slate-50 text-slate-600";
                   return (
                     <tr key={i} className="group hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/provider/bookings/${booking._id}`)}>
@@ -106,7 +109,7 @@ const ProviderDashboard: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                             <img
-                              src={booking.userId?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${customerName}`}
+                              src={customerPhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${customerName}`}
                               alt={customerName}
                               className="w-full h-full object-cover"
                             />

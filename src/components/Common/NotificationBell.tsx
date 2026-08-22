@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 
 export const NotificationBell: React.FC = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -15,7 +16,7 @@ export const NotificationBell: React.FC = () => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [fetchNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -40,7 +41,9 @@ export const NotificationBell: React.FC = () => {
     if (!notification.isRead) {
       try {
         await markAsRead(notification._id);
-      } catch (e) {}
+      } catch {
+        return;
+      }
     }
     setIsOpen(false);
 

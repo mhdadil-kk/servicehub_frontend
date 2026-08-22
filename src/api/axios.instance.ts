@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "../constants/api";
+import { API_ROUTES } from "../constants/api.routes";
 import { useAuthStore } from "../store/useAuthStore";
 
 const axiosInstance = axios.create({
@@ -29,7 +30,9 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const isAuthRequest = originalRequest.url?.includes("/auth/login") || originalRequest.url?.includes("/auth/signup");
+      const isAuthRequest =
+        originalRequest.url?.includes(API_ROUTES.AUTH.LOGIN) ||
+        originalRequest.url?.includes(API_ROUTES.AUTH.SIGNUP);
 
       if (!isAuthRequest) {
         originalRequest._retry = true;
@@ -37,15 +40,14 @@ axiosInstance.interceptors.response.use(
 
         if (refreshToken) {
           try {
-            const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+            const response = await axios.post(`${API_BASE_URL}${API_ROUTES.AUTH.REFRESH}`, { refreshToken });
             const { accessToken } = response.data.data;
 
             useAuthStore.getState().setTokens(accessToken, refreshToken);
 
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
             return axiosInstance(originalRequest);
-          } catch (refreshError) {
-
+          } catch  {
             useAuthStore.getState().logout();
           }
         } else {
@@ -58,6 +60,5 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(new Error(message));
   }
 );
-
 
 export default axiosInstance;

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, Star } from "lucide-react";
 import { reviewService } from "../api/review.service";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../utils/errors";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -33,13 +34,12 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, booki
     setLoading(true);
     try {
       const res = await reviewService.createReview({ bookingId, rating, reviewText });
-      const msg = (res as any).data?.message || "";
+      const msg = res.message || "";
       toast.success(msg === "Review already submitted" ? "Review was already saved!" : "Review submitted successfully!");
       onSuccess();
       onClose();
     } catch (error: unknown) {
-      const err = error as any;
-      toast.error(err.response?.data?.message || "Failed to submit review");
+      toast.error(getErrorMessage(error, "Failed to submit review"));
     } finally {
       setLoading(false);
     }

@@ -8,8 +8,8 @@ import { getSimulated } from "../../types/provider.types";
 import { useChat } from "../../hooks/useChat";
 import { useProviderProfile } from "../../hooks/useProviderProfile";
 import type { Review } from "../../types/provider.types";
-import toast from "react-hot-toast";
 import ReportModal from "../../components/shared/ReportModal";
+import { getErrorMessage } from "../../utils/errors";
 
 interface ProviderProfileDetailProps {
   provider: Provider;
@@ -38,7 +38,7 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
 }) => {
   const navigate = useNavigate();
   const sim = getSimulated(provider, userCoords);
-  const { loadReviews, reviews: fetchedReviews } = useProviderProfile();
+  const { loadReviews } = useProviderProfile();
   const { getOrCreateDirectConversation } = useChat();
 
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -58,7 +58,7 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
       }
     };
     fetchReviews();
-  }, [provider._id]);
+  }, [provider._id, loadReviews]);
 
   const handleChat = async () => {
     if (isChatLoading) return;  
@@ -68,7 +68,8 @@ const ProviderProfileDetail: React.FC<ProviderProfileDetailProps> = ({
       if (conversation?._id) {
         navigate(`/user/messages?conversationId=${conversation._id}`);
       }
-    } catch {
+    } catch (error: unknown) {
+      console.error(getErrorMessage(error, "Failed to open chat"));
     } finally {
       setIsChatLoading(false);
     }

@@ -1,6 +1,6 @@
 import axiosInstance from "./axios.instance";
 import type { ApiResponse } from "../types/api.types";
-import type { Provider } from "../types/provider.types";
+import { API_ROUTES } from "../constants/api.routes";
 
 export interface IProviderProfile {
   _id: string;
@@ -35,34 +35,34 @@ export interface IProviderAvailability {
 }
 
 export const providerApi = {
-  updateProfile: (formData: FormData) => 
-    axiosInstance.patch<unknown, ApiResponse<IProviderProfile>>("/provider/onboarding/profile", formData, {
-      headers: { "Content-Type": "multipart/form-data" }
+  updateProfile: (formData: FormData) =>
+    axiosInstance.put<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.PROFILE, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     }),
 
-  updateLocation: (data: { address: string, latitude: number, longitude: number, serviceRadius: number }) => 
-    axiosInstance.patch<unknown, ApiResponse<IProviderProfile>>("/provider/onboarding/location", data),
+  updateLocation: (data: { address: string; latitude: number; longitude: number; serviceRadius: number }) =>
+    axiosInstance.put<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.LOCATION, data),
 
-  updateServiceDetails: (data: { serviceId: string, hourlyRate: number }) => 
-    axiosInstance.patch<unknown, ApiResponse<IProviderProfile>>("/provider/onboarding/service", data),
+  updateServiceDetails: (data: { serviceId: string; hourlyRate: number }) =>
+    axiosInstance.put<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.SERVICE_DETAILS, data),
 
-  uploadDocuments: (formData: FormData) => 
-    axiosInstance.post<unknown, ApiResponse<IProviderProfile>>("/provider/onboarding/documents", formData, {
-      headers: { "Content-Type": "multipart/form-data" }
+  uploadDocuments: (formData: FormData) =>
+    axiosInstance.post<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.VERIFY_DOCS, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     }),
 
-  updateBankDetails: (data: { accountHolderName: string, bankName: string, accountNumber: string, routingNumber: string }) => 
-    axiosInstance.patch<unknown, ApiResponse<IProviderProfile>>("/provider/onboarding/bank", data),
+  updateBankDetails: (data: { accountHolderName: string; bankName: string; accountNumber: string; routingNumber: string }) =>
+    axiosInstance.put<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.BANK_DETAILS, data),
 
   resetForReapply: () =>
-    axiosInstance.post<unknown, ApiResponse<IProviderProfile>>("/provider/onboarding/reset"),
+    axiosInstance.post<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.REAPPLY),
 
-  getProfile: () => 
-    axiosInstance.get<unknown, ApiResponse<IProviderProfile>>("/provider/profile"),
+  getProfile: () =>
+    axiosInstance.get<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.PROFILE),
 
-  getAvailability: () => 
-    axiosInstance.get<unknown, ApiResponse<IProviderAvailability>>("/provider/availability"),
+  getAvailability: () =>
+    axiosInstance.get<unknown, ApiResponse<IProviderAvailability>>(API_ROUTES.PROVIDER.AVAILABILITY),
 
-  updateAvailability: (data: Partial<IProviderAvailability>) => 
-    axiosInstance.put<unknown, ApiResponse<IProviderAvailability>>("/provider/availability", data),
+  updateAvailability: (data: Partial<IProviderAvailability>) =>
+    axiosInstance.put<unknown, ApiResponse<IProviderAvailability>>(API_ROUTES.PROVIDER.AVAILABILITY, data),
 };

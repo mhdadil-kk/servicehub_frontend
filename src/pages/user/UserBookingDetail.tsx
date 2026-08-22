@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -21,24 +21,48 @@ import ReportModal from "../../components/shared/ReportModal";
 import BookingModal from "../../components/user/BookingModal";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { patchLeafletDefaultIcon } from "../../utils/leaflet-icon";
 
-import L from "leaflet";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-});
+patchLeafletDefaultIcon();
 
 import { bookingApi } from "../../api/booking.service";
 import type { Booking } from "../../api/booking.service";
 import { paymentApi } from "../../api/payment.service";
 import { generateInvoicePDF } from "../../utils/pdf";
 import { useWallet } from "../../hooks/useWallet";
+import type { PopulatedAddress, PopulatedProviderProfile, PopulatedService } from "../../types/domain.types";
+import {
+  isPopulatedProvider,
+  isPopulatedUser,
+  isPopulatedService,
+  isPopulatedAddress,
+} from "../../types/domain.types";
+import type { Provider } from "../../types/provider.types";
+import { getErrorMessage } from "../../utils/errors";
+
+function populatedProviderToModalProvider(p: PopulatedProviderProfile): Provider {
+  const user = isPopulatedUser(p.userId)
+    ? p.userId
+    : { _id: typeof p.userId === "string" ? p.userId : "", name: "Provider", email: "" };
+  const service = isPopulatedService(p.serviceId)
+    ? { _id: p.serviceId._id, name: p.serviceId.name, description: p.serviceId.description }
+    : undefined;
+  return {
+    _id: p._id,
+    userId: {
+      _id: user._id,
+      name: user.name,
+      email: user.email ?? "",
+      phone: user.phone,
+      profilePhoto: user.profilePhoto ?? p.profilePhoto,
+    },
+    profilePhoto: p.profilePhoto,
+    bio: p.bio,
+    serviceId: service,
+    hourlyRate: p.hourlyRate,
+    address: p.address,
+  };
+}
 
 const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="flex justify-between items-center py-2.5 border-b border-slate-50 last:border-0">
@@ -83,22 +107,23 @@ const UserBookingDetail: React.FC = () => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
 
-  const fetchBookingData = async () => {
+  const fetchBookingData = useCallback(async () => {
+    if (!bookingId) return;
     try {
-      const res = await bookingApi.getBookingDetail(bookingId!);
+      const res = await bookingApi.getBookingDetail(bookingId);
       setBooking(res.data ?? null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to load booking details");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to load booking details"));
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [bookingId]);
 
   useEffect(() => {
     if (!bookingId) return;
     fetchBookingData();
     fetchWalletData().catch(() => {});
-  }, [bookingId]);
+  }, [bookingId, fetchBookingData, fetchWalletData]);
 
   const handleCancel = async () => {
     if (!booking) return;
@@ -137,7 +162,7 @@ const UserBookingDetail: React.FC = () => {
       } else {
         throw new Error("Missing checkout URL");
       }
-    } catch (err) {
+    } catch {
       toast.dismiss();
       toast.error("Failed to initiate payment");
     } finally {
@@ -155,9 +180,9 @@ const UserBookingDetail: React.FC = () => {
       toast.success("Payment successful!");
       fetchBookingData();
       fetchWalletData().catch(() => {});
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.dismiss();
-      toast.error(err.response?.data?.message || "Failed to process wallet payment");
+      toast.error(getErrorMessage(err, "Failed to process wallet payment"));
     } finally {
       setIsSubmitting(false);
     }
@@ -221,10 +246,17 @@ const UserBookingDetail: React.FC = () => {
     );
   }
 
-  const providerInfo = typeof booking.providerId === "object" ? booking.providerId : null;
-  const serviceInfo = typeof booking.serviceId === "object" ? booking.serviceId : null;
-  const addressInfo = typeof booking.addressId === "object" ? booking.addressId : null;
-  const providerUser = providerInfo?.userId;
+const providerInfo = isPopulatedProvider(booking.provider || booking.providerId)
+  ? (booking.provider || booking.providerId) as PopulatedProviderProfile
+  : null;
+const serviceInfo = isPopulatedService(booking.service || booking.serviceId)
+  ? (booking.service || booking.serviceId) as PopulatedService
+  : null;
+const addressInfo = isPopulatedAddress(booking.address || booking.addressId)
+  ? (booking.address || booking.addressId) as PopulatedAddress
+  : null;
+const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? providerInfo.userId : null;
+  const walletBalance = wallet?.balance ?? 0;
 
   const isPending = booking.status === "pending";
   const isAwaitingPayment = booking.status === "awaiting_payment";
@@ -455,11 +487,11 @@ const UserBookingDetail: React.FC = () => {
                 </button>
                 <button
                   onClick={handlePayWithWallet}
-                  disabled={isSubmitting || !wallet || (wallet as any).balance < 100}
+                  disabled={isSubmitting || !wallet || walletBalance < 100}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
-                  Pay from Wallet {!wallet || (wallet as any).balance < 100 ? "(Insufficient Balance)" : `(Bal: ₹${(wallet as any).balance})`}
+                  Pay from Wallet {!wallet || walletBalance < 100 ? "(Insufficient Balance)" : `(Bal: ₹${walletBalance})`}
                 </button>
               </div>
             )}
@@ -498,11 +530,11 @@ const UserBookingDetail: React.FC = () => {
                 </button>
                 <button
                   onClick={handlePayWithWallet}
-                  disabled={isSubmitting || !wallet || (wallet as any).balance < booking.totalAmount!}
+                  disabled={isSubmitting || !wallet || walletBalance < (booking.totalAmount ?? 0)}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
-                  Pay from Wallet {!wallet || (wallet as any).balance < booking.totalAmount! ? "(Insufficient Balance)" : `(Bal: ₹${(wallet as any).balance})`}
+                  Pay from Wallet {!wallet || walletBalance < (booking.totalAmount ?? 0) ? "(Insufficient Balance)" : `(Bal: ₹${walletBalance})`}
                 </button>
               </div>
             )}
@@ -627,7 +659,13 @@ const UserBookingDetail: React.FC = () => {
         <ReportModal
           isOpen={isReportModalOpen}
           onClose={() => setIsReportModalOpen(false)}
-          reportedId={typeof booking.providerId === "object" ? (booking.providerId as any).userId._id || (booking.providerId as any).userId : booking.providerId}
+          reportedId={
+            providerInfo && isPopulatedUser(providerInfo.userId)
+              ? providerInfo.userId._id
+              : typeof booking.providerId === "string"
+                ? booking.providerId
+                : ""
+          }
           bookingId={booking._id}
           reportedName={providerUser.name}
         />
@@ -637,9 +675,15 @@ const UserBookingDetail: React.FC = () => {
         <BookingModal
           isOpen={isRescheduleModalOpen}
           onClose={() => setIsRescheduleModalOpen(false)}
-          provider={providerInfo as any}
+          provider={populatedProviderToModalProvider(providerInfo)}
           rescheduleBookingId={booking._id}
-          initialAddressId={typeof booking.addressId === "object" ? (booking.addressId as any)._id : booking.addressId}
+          initialAddressId={
+            isPopulatedAddress(booking.addressId)
+              ? booking.addressId._id
+              : typeof booking.addressId === "string"
+                ? booking.addressId
+                : undefined
+          }
           initialNotes={booking.notes}
           onSuccess={() => { setIsRescheduleModalOpen(false); fetchBookingData(); }}
         />

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, ShieldAlert, Loader2, Upload, AlertCircle } from "lucide-react";
 import { useReports } from "../../hooks/useReports";
+import type { ReportCategory } from "../../types/domain.types";
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -18,8 +19,14 @@ const CATEGORIES = [
   "Payment Issue",
   "Inappropriate Behaviour",
   "Service Quality",
-  "Other"
-] as const;
+  "Other",
+] as const satisfies readonly ReportCategory[];
+
+type ReportCategoryOption = (typeof CATEGORIES)[number];
+
+function isReportCategoryOption(value: string): value is ReportCategoryOption {
+  return (CATEGORIES as readonly string[]).includes(value);
+}
 
 const ReportModal: React.FC<ReportModalProps> = ({
   isOpen,
@@ -30,12 +37,11 @@ const ReportModal: React.FC<ReportModalProps> = ({
 }) => {
   const { submitReport, isSubmitting } = useReports();
   
-  const [category, setCategory] = useState<typeof CATEGORIES[number] | "">("");
+  const [category, setCategory] = useState<ReportCategoryOption | "">("");
   const [description, setDescription] = useState("");
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
-  const [isUploading, setIsUploading] = useState(false);
+
   const [error, setError] = useState("");
 
   if (!isOpen) return null;
@@ -72,7 +78,7 @@ const ReportModal: React.FC<ReportModalProps> = ({
     const success = await submitReport({
       reportedId,
       bookingId,
-      category: category as any,
+      category,
       description,
       screenshot: screenshotFile || undefined
     });
@@ -120,7 +126,8 @@ const ReportModal: React.FC<ReportModalProps> = ({
             <select
               value={category}
               onChange={(e) => {
-                setCategory(e.target.value as any);
+                const value = e.target.value;
+                setCategory(isReportCategoryOption(value) ? value : "");
                 if (error) setError("");
               }}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
@@ -190,18 +197,18 @@ const ReportModal: React.FC<ReportModalProps> = ({
             type="button"
             onClick={handleClose}
             className="flex-1 px-5 py-3 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors"
-            disabled={isSubmitting || isUploading}
+            disabled={isSubmitting}
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || isUploading || !category || !description.trim()}
+            disabled={isSubmitting || !category || !description.trim()}
             className="flex-1 px-5 py-3 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 border border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
-            {(isSubmitting || isUploading) && <Loader2 size={14} className="animate-spin" />}
-            {isUploading ? "Uploading..." : isSubmitting ? "Submitting..." : "Submit Report"}
+            {(isSubmitting) && <Loader2 size={14} className="animate-spin" />}
+            {isSubmitting ? "Submitting..." : "Submit Report"}
           </button>
         </div>
       </div>

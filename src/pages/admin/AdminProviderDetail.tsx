@@ -15,7 +15,10 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+import type { Provider } from '../../types/provider.types';
+import type { ProviderDocumentEntry } from '../../types/domain.types';
+
+(L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl = undefined;
 L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   iconRetinaUrl: markerIcon2x,
@@ -26,7 +29,7 @@ const AdminProviderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { fetchProviderDetail, verifyProvider } = useAdmin();
-  const [provider, setProvider] = useState<any>(null);
+  const [provider, setProvider] = useState<Provider | null>(null);
   const [loading, setLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -37,14 +40,14 @@ const AdminProviderDetail: React.FC = () => {
       try {
         const data = await fetchProviderDetail(id!);
         setProvider(data?.provider || data);
-      } catch (err) {
+      } catch {
         navigate('/admin/providers');
       } finally {
         setLoading(false);
       }
     };
     loadData();
-  }, [id]);
+  }, [id, fetchProviderDetail, navigate]);
 
   const handleVerify = async (status: 'approved' | 'rejected') => {
     if (status === 'rejected' && !rejectionReason) {
@@ -221,11 +224,10 @@ const AdminProviderDetail: React.FC = () => {
                 <div className="space-y-4">
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">1. Government Identity Proofs</p>
                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {provider.documents?.filter((d: any) => {
-                       
-                         const isIdentity = d.docType === 'identity' || typeof d === 'string' || (typeof d === 'object' && !d.docType);
+                      {provider.documents?.filter((d: ProviderDocumentEntry) => {
+                         const isIdentity = typeof d === 'string' || d.docType === 'identity' || !d.docType;
                          return isIdentity;
-                      }).map((doc: any, idx: number) => {
+                      }).map((doc: ProviderDocumentEntry, idx: number) => {
                          const url = typeof doc === 'string' ? doc : doc.url;
                          return (
                             <a key={idx} href={url} target="_blank" rel="noreferrer" className="group relative aspect-square rounded-[24px] overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
@@ -243,7 +245,7 @@ const AdminProviderDetail: React.FC = () => {
                             </a>
                          );
                       })}
-                      {provider.documents?.filter((d: any) => d.docType === 'identity' || typeof d === 'string' || (typeof d === 'object' && !d.docType)).length === 0 && (
+                      {provider.documents?.filter((d: ProviderDocumentEntry) => typeof d === 'string' || d.docType === 'identity' || !d.docType).length === 0 && (
                         <div className="col-span-full py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
                            <p className="text-xs font-bold text-slate-400">No identity documents uploaded</p>
                         </div>
@@ -255,8 +257,8 @@ const AdminProviderDetail: React.FC = () => {
                 <div className="space-y-4">
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">2. Professional Certifications & Licenses</p>
                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {provider.documents?.filter((d: any) => d.docType === 'license').map((doc: any, idx: number) => {
-                         const url = doc.url;
+                      {provider.documents?.filter((d: ProviderDocumentEntry) => typeof d !== 'string' && d.docType === 'license').map((doc: ProviderDocumentEntry, idx: number) => {
+                         const url = typeof doc === 'string' ? doc : doc.url;
                          return (
                             <a key={idx} href={url} target="_blank" rel="noreferrer" className="group relative aspect-square rounded-[24px] overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
                                {url?.toLowerCase().endsWith('.pdf') ? (
@@ -273,7 +275,7 @@ const AdminProviderDetail: React.FC = () => {
                             </a>
                          );
                       })}
-                      {provider.documents?.filter((d: any) => d.docType === 'license').length === 0 && (
+                      {provider.documents?.filter((d: ProviderDocumentEntry) => typeof d !== 'string' && d.docType === 'license').length === 0 && (
                         <div className="col-span-full py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
                            <p className="text-xs font-bold text-slate-400">No professional licenses uploaded</p>
                         </div>

@@ -2,32 +2,13 @@ import React, { useEffect } from "react";
 import { Wallet, ArrowDownRight, ArrowUpRight, History } from "lucide-react";
 import { useWallet } from "../../hooks/useWallet";
 
-interface ITransaction {
-  _id: string;
-  type: "credit" | "debit";
-  amount: number;
-  description: string;
-  status: "pending" | "success" | "failed";
-  createdAt: string;
-}
-
-interface IWallet {
-  balance: number;
-  currency: string;
-}
-
-interface WalletData {
-  wallet: IWallet;
-  transactions: ITransaction[];
-}
-
 const UserWallet: React.FC = () => {
   const { wallet, transactions, loading, fetchWalletData } = useWallet();
   const data = wallet && transactions ? { wallet, transactions } : null;
 
   useEffect(() => {
     fetchWalletData();
-  }, []);
+  }, [fetchWalletData]);
 
   if (loading || !data) {
     return (

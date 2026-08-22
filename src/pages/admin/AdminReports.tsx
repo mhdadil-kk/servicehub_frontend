@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Flag, Loader2, ShieldAlert, CheckCircle2, UserX, AlertCircle, Ban, Search, Filter } from "lucide-react";
+import { Flag, Loader2, ShieldAlert, CheckCircle2, UserX, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useReports } from "../../hooks/useReports";
 import { type Report } from "../../api/report.service";
+import { isPopulatedUser, getUserName } from "../../types/domain.types";
 
 const AdminReports: React.FC = () => {
   const navigate = useNavigate();
-  const { reports, loading, isSubmitting, total, fetchAllReports, takeAction } = useReports();
+  const { reports, loading, isSubmitting, fetchAllReports, takeAction } = useReports();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [adminNotes, setAdminNotes] = useState("");
@@ -89,7 +90,7 @@ const AdminReports: React.FC = () => {
                   </p>
                   <div className={`mt-3 pt-3 border-t flex justify-between items-center ${isSelected ? "border-rose-500/50" : "border-slate-50"}`}>
                     <span className={`text-[10px] font-semibold flex items-center gap-1 ${isSelected ? "text-rose-100" : "text-slate-400"}`}>
-                      Reported by {(report.reporterId as any)?.name || "User"}
+                      Reported by {getUserName(report.reporterId)}
                     </span>
                     <span className={`w-2 h-2 rounded-full ${report.status === 'pending' ? 'bg-orange-400' : report.status === 'resolved' ? 'bg-emerald-400' : 'bg-slate-300'}`} />
                   </div>
@@ -133,40 +134,55 @@ const AdminReports: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reporter</span>
-                <div className="flex items-center gap-3 mt-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden">
-                     <img src={(selectedReport.reporterId as any)?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${(selectedReport.reporterId as any)?.name}`} alt="" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-slate-900">{(selectedReport.reporterId as any)?.name}</p>
-                    <p className="text-xs text-slate-500 font-bold">Role: {(selectedReport.reporterId as any)?.role}</p>
-                  </div>
-                </div>
-              </div>
+              {(() => {
+                const reporterObj = isPopulatedUser(selectedReport.reporterId) ? selectedReport.reporterId : null;
+                const reporterName = getUserName(selectedReport.reporterId);
+                const reporterRole = reporterObj?.role || "User";
+                const reporterPhoto = reporterObj?.profilePhoto;
 
-              <div className="bg-rose-50/50 p-6 rounded-3xl border border-rose-100 shadow-sm">
-                <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Reported User/Provider</span>
-                <div 
-                  onClick={() => {
-                    const reportedIdStr = (selectedReport.reportedId as any)?._id || selectedReport.reportedId;
-                    const role = (selectedReport.reportedId as any)?.role;
-                    if (role === 'provider') navigate(`/admin/providers/${reportedIdStr}`);
-                    else navigate(`/admin/users`);
-                  }}
-                  className="flex items-center gap-3 mt-3 cursor-pointer hover:opacity-80 transition-opacity bg-white p-3 rounded-2xl border border-rose-100/50"
-                  title="Click to view details and manage this user"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-slate-50 overflow-hidden border border-rose-100">
-                     <img src={(selectedReport.reportedId as any)?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${(selectedReport.reportedId as any)?.name}`} alt="" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-rose-900 group-hover:text-rose-600 transition-colors">{(selectedReport.reportedId as any)?.name}</p>
-                    <p className="text-xs text-rose-600 font-bold">Role: {(selectedReport.reportedId as any)?.role}</p>
-                  </div>
-                </div>
-              </div>
+                const reportedObj = isPopulatedUser(selectedReport.reportedId) ? selectedReport.reportedId : null;
+                const reportedIdStr = reportedObj?._id || (typeof selectedReport.reportedId === "string" ? selectedReport.reportedId : "");
+                const reportedName = getUserName(selectedReport.reportedId);
+                const reportedRole = reportedObj?.role || "User";
+                const reportedPhoto = reportedObj?.profilePhoto;
+
+                return (
+                  <>
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reporter</span>
+                      <div className="flex items-center gap-3 mt-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden">
+                           <img src={reporterPhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${reporterName}`} alt="" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900">{reporterName}</p>
+                          <p className="text-xs text-slate-500 font-bold">Role: {reporterRole}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-rose-50/50 p-6 rounded-3xl border border-rose-100 shadow-sm">
+                      <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Reported User/Provider</span>
+                      <div 
+                        onClick={() => {
+                          if (reportedRole === 'provider') navigate(`/admin/providers/${reportedIdStr}`);
+                          else navigate(`/admin/users`);
+                        }}
+                        className="flex items-center gap-3 mt-3 cursor-pointer hover:opacity-80 transition-opacity bg-white p-3 rounded-2xl border border-rose-100/50"
+                        title="Click to view details and manage this user"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 overflow-hidden border border-rose-100">
+                           <img src={reportedPhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${reportedName}`} alt="" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-rose-900 group-hover:text-rose-600 transition-colors">{reportedName}</p>
+                          <p className="text-xs text-rose-600 font-bold">Role: {reportedRole}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">

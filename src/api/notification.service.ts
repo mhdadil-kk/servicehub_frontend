@@ -1,4 +1,6 @@
 import api from "./axios.instance";
+import { API_ROUTES } from "../constants/api.routes";
+import type { ApiResponse } from "../types/api.types";
 
 export interface AppNotification {
   _id: string;
@@ -10,13 +12,20 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface NotificationsPayload {
+  notifications: AppNotification[];
+  unreadCount: number;
+}
+
 export const notificationApi = {
-  getNotifications: () => 
-    api.get<{ data: { notifications: AppNotification[], unreadCount: number } }>("/notifications"),
+  getNotifications: () =>
+    api.get<unknown, ApiResponse<NotificationsPayload | AppNotification[]>>(
+      API_ROUTES.NOTIFICATIONS.LIST
+    ),
 
   markAsRead: (id: string) =>
-    api.patch<{ data: AppNotification }>(`/notifications/${id}/read`),
+    api.patch<unknown, ApiResponse<AppNotification>>(API_ROUTES.NOTIFICATIONS.MARK_READ(id)),
 
   markAllAsRead: () =>
-    api.patch<{ data: null }>("/notifications/read-all")
+    api.patch<unknown, ApiResponse<null>>(API_ROUTES.NOTIFICATIONS.MARK_ALL_READ),
 };

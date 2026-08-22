@@ -1,6 +1,26 @@
 import { useState, useCallback } from "react";
-import { notificationApi, type AppNotification } from "../api/notification.service";
+import {
+  notificationApi,
+  type AppNotification,
+  type NotificationsPayload,
+} from "../api/notification.service";
 import toast from "react-hot-toast";
+
+function normalizeNotificationsPayload(
+  data: NotificationsPayload | AppNotification[] | undefined
+): { notifications: AppNotification[]; unreadCount: number } {
+  if (!data) return { notifications: [], unreadCount: 0 };
+  if (Array.isArray(data)) {
+    return {
+      notifications: data,
+      unreadCount: data.filter((n) => !n.isRead).length,
+    };
+  }
+  return {
+    notifications: data.notifications ?? [],
+    unreadCount: data.unreadCount ?? 0,
+  };
+}
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -11,12 +31,10 @@ export const useNotifications = () => {
     try {
       setLoading(true);
       const res = await notificationApi.getNotifications();
-      const result = (res as any).data;
-      setNotifications(result?.notifications || result || []);
-      setUnreadCount(result?.unreadCount ?? 0);
+      const result = normalizeNotificationsPayload(res.data);
+      setNotifications(result.notifications);
+      setUnreadCount(result.unreadCount);
       return result;
-    } catch (error) {
-      throw error;
     } finally {
       setLoading(false);
     }
@@ -25,10 +43,10 @@ export const useNotifications = () => {
   const markAsRead = useCallback(async (id: string) => {
     try {
       await notificationApi.markAsRead(id);
-      setNotifications(prev =>
-        prev.map(n => n._id === id ? { ...n, isRead: true } : n)
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       toast.error("Failed to mark notification as read.");
       throw error;
@@ -38,7 +56,7 @@ export const useNotifications = () => {
   const markAllAsRead = useCallback(async () => {
     try {
       await notificationApi.markAllAsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (error) {
       toast.error("Failed to mark all as read.");

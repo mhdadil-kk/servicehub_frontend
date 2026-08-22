@@ -17,7 +17,7 @@ interface IWallet {
   currency: string;
 }
 
-interface WalletData {
+export interface WalletData {
   wallet: IWallet;
   transactions: ITransaction[];
 }
@@ -28,7 +28,7 @@ const ProviderWallet: React.FC = () => {
 
   useEffect(() => {
     fetchWalletData();
-  }, []);
+  }, [fetchWalletData]);
 
   const handleWithdraw = () => {
     toast.success("Withdrawal request submitted successfully!");

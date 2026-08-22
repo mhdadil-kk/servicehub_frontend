@@ -53,9 +53,6 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role === "provider" && user?.status === "pending" && location.pathname === "/provider/onboarding") {
-  }
-
   if (user?.role === "admin") {
     return <AdminLayout>{children}</AdminLayout>;
   }

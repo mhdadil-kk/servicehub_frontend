@@ -1,4 +1,6 @@
 import axiosInstance from "./axios.instance";
+import { API_BASE_URL } from "../constants/api";
+import { API_ROUTES } from "../constants/api.routes";
 import type { ApiResponse } from "../types/api.types";
 
 export interface Message {
@@ -37,36 +39,36 @@ export interface Conversation {
 
 export const chatApi = {
   getConversations: () =>
-    axiosInstance.get<unknown, ApiResponse<Conversation[]>>("/chat/conversations"),
+    axiosInstance.get<unknown, ApiResponse<Conversation[]>>(API_ROUTES.CHAT.CONVERSATIONS),
 
   getOrCreateDirectConversation: (targetUserId: string) =>
-    axiosInstance.post<unknown, ApiResponse<Conversation>>("/chat/conversations", { targetUserId }),
+    axiosInstance.post<unknown, ApiResponse<Conversation>>(API_ROUTES.CHAT.CONVERSATIONS, { targetUserId }),
 
   getChatHistory: (id: string) =>
-    axiosInstance.get<unknown, ApiResponse<Message[]>>(`/chat/${id}`),
+    axiosInstance.get<unknown, ApiResponse<Message[]>>(API_ROUTES.CHAT.HISTORY(id)),
 
   markAsRead: (id: string) =>
-    axiosInstance.patch<unknown, ApiResponse<null>>(`/chat/${id}/read`),
+    axiosInstance.patch<unknown, ApiResponse<null>>(API_ROUTES.CHAT.MARK_READ(id)),
 
   deleteConversation: (conversationId: string) =>
-    axiosInstance.delete<unknown, ApiResponse<null>>(`/chat/conversations/${conversationId}`),
+    axiosInstance.delete<unknown, ApiResponse<null>>(API_ROUTES.CHAT.CONVERSATION_BY_ID(conversationId)),
 
   uploadChatImage: async (file: File) => {
     const formData = new FormData();
     formData.append("image", file);
     const token = localStorage.getItem("accessToken");
-    
-    const res = await fetch(`http://localhost:5000/api/chat/upload-image`, {
+
+    const res = await fetch(`${API_BASE_URL}/chat/upload-image`, {
       method: "POST",
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: formData
+      body: formData,
     });
-    
+
     const data = await res.json();
     if (!res.ok) {
-      throw { response: { data } }; 
+      throw { response: { data } };
     }
     return { data };
   },

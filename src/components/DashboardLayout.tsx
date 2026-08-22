@@ -7,7 +7,6 @@ import {
   MessageSquare, 
   User, 
   LogOut, 
-  HelpCircle,
   Clock,
   Wallet,
   CalendarCheck,
@@ -17,7 +16,9 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import logo from "../assets/logo.png";
-import { providerApi } from "../api/provider.service";
+import { providerApi, type IProviderProfile } from "../api/provider.service";
+import type { IUser } from "../types/api.types";
+import { getErrorMessage } from "../utils/errors";
 import ProviderOnboardingModal from "./ProviderOnboardingModal";
 import toast from "react-hot-toast";
 import { NotificationBell } from "./Common/NotificationBell";
@@ -27,7 +28,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<IProviderProfile | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [showReapplyModal, setShowReapplyModal] = useState(false);
 
@@ -37,14 +38,15 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         .then(res => {
           if (res.data) {
             setProfile(res.data);
-            if (user.status !== res.data.onboardingStatus) {
-              setUser({ ...user, status: res.data.onboardingStatus });
+            const nextStatus = res.data.onboardingStatus as IUser["status"];
+            if (user.status !== nextStatus) {
+              setUser({ ...user, status: nextStatus });
             }
           }
         })
         .catch(err => console.error("Error fetching provider profile in layout:", err));
     }
-  }, [user?.role, user?.status]);
+  }, [user, setUser]);
 
   const handleReapply = async () => {
     try {
@@ -55,9 +57,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       }
       setShowReapplyModal(true);
       toast.success("Application reset. Please fill out onboarding steps again.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to reset application state");
+      toast.error(getErrorMessage(err, "Failed to reset application state"));
     } finally {
       setIsResetting(false);
     }

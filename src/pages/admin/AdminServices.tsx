@@ -20,7 +20,7 @@ const AdminServices: React.FC = () => {
 
   useEffect(() => {
     fetchAdminServices();
-  }, []);
+  }, [fetchAdminServices]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +44,8 @@ const AdminServices: React.FC = () => {
         setShowModal(false);
         setForm({ name: "", description: "" });
       }
-    } catch (error) {
+    } catch {
+      toast.error("Failed to add service category.");
     }
   };
 

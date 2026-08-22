@@ -3,19 +3,22 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "../components/Common";
 import { usePayment } from "../hooks/usePayment";
+import { getErrorMessage } from "../utils/errors";
 
 const PaymentSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
   const bookingId = searchParams.get("booking_id");
+  const hasPaymentParams = Boolean(sessionId && bookingId);
 
-  const [status, setStatus] = useState<"loading" | "done" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "done" | "error">(
+    hasPaymentParams ? "loading" : "done"
+  );
   const [alreadyProcessed, setAlreadyProcessed] = useState(false);
   const { verifyPayment } = usePayment();
 
   useEffect(() => {
     if (!sessionId || !bookingId) {
-      setStatus("done");
       return;
     }
 
@@ -23,8 +26,8 @@ const PaymentSuccess: React.FC = () => {
       try {
         await verifyPayment(sessionId, bookingId);
         setStatus("done");
-      } catch (err: any) {
-        const msg: string = err?.message || "";
+      } catch (err: unknown) {
+        const msg = getErrorMessage(err, "");
         if (msg.toLowerCase().includes("already")) {
           setAlreadyProcessed(true);
           setStatus("done");
@@ -33,7 +36,7 @@ const PaymentSuccess: React.FC = () => {
         }
       }
     })();
-  }, [sessionId, bookingId]);
+  }, [sessionId, bookingId, verifyPayment]);
 
   if (status === "loading") {
     return (

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import { useAuthStore } from '../../store/useAuthStore';
+import type { PopulatedService } from '../../types/domain.types';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -169,8 +170,8 @@ const ProviderOnboarding: React.FC = () => {
     }
     e.target.value = "";
   };
-  const [availableServices, setAvailableServices] = useState<any[]>([]);
-  const [selectedService, setSelectedService] = useState<any>(null);
+  const [availableServices, setAvailableServices] = useState<PopulatedService[]>([]);
+  const [selectedService, setSelectedService] = useState<PopulatedService | string | null>(null);
   const [loadingServices, setLoadingServices] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -188,7 +189,7 @@ const ProviderOnboarding: React.FC = () => {
           loadProfile()
         ]);
         
-        setAvailableServices(servicesRes || []);
+        setAvailableServices((servicesRes as PopulatedService[]) || []);
         
         if (profileRes) {
           const profile = profileRes;
@@ -204,7 +205,7 @@ const ProviderOnboarding: React.FC = () => {
             address: profile.address || "",
             latitude: profile.location?.coordinates?.[1] || null,
             longitude: profile.location?.coordinates?.[0] || null,
-            hourlyRate: profile.hourlyRate || "",
+            hourlyRate: profile.hourlyRate ? String(profile.hourlyRate) : "",
             accountHolderName: profile.bankDetails?.accountHolderName || "",
             bankName: profile.bankDetails?.bankName || "",
             accountNumber: profile.bankDetails?.accountNumber || "",
@@ -212,12 +213,12 @@ const ProviderOnboarding: React.FC = () => {
           }));
           
           if (profile.profilePhoto) setProfilePreview(profile.profilePhoto);
-          if (profile.serviceId) setSelectedService(profile.serviceId);
+          if (profile.serviceId) setSelectedService(profile.serviceId as PopulatedService | string);
           
-          setCurrentStep(profile.onboardingStep as Step);
-          setProgress(profile.onboardingStep * 25);
+          setCurrentStep((profile.onboardingStep || 1) as Step);
+          setProgress((profile.onboardingStep || 1) * 25);
         }
-      } catch (error) {
+      } catch {
         toast.error("Failed to initialize onboarding");
       } finally {
         setLoadingServices(false);
@@ -225,7 +226,7 @@ const ProviderOnboarding: React.FC = () => {
       }
     };
     initOnboarding();
-  }, []);
+  }, [fetchActiveServices, loadProfile, navigate]);
 
   const handleNext = async () => {
     setIsSubmitting(true);
@@ -255,8 +256,9 @@ const ProviderOnboarding: React.FC = () => {
         if (rateErr) newErrors.hourlyRate = rateErr;
         
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); setIsSubmitting(false); return; }
+        const serviceIdStr = typeof selectedService === 'object' && selectedService ? selectedService._id : (selectedService as string);
         await updateServiceDetails({
-          serviceId: selectedService._id || selectedService,
+          serviceId: serviceIdStr,
           hourlyRate: Number(form.hourlyRate)
         });
       }
@@ -300,8 +302,9 @@ const ProviderOnboarding: React.FC = () => {
       } else {
         setProgress(100);
       }
-    } catch (error: any) {
-      const serverMsg: string = error?.response?.data?.message || error?.message || "";
+    } catch (error: unknown) {
+      const errObj = error as { response?: { data?: { message?: string } }; message?: string };
+      const serverMsg: string = errObj?.response?.data?.message || errObj?.message || "";
       if (serverMsg.toLowerCase().includes("photo") || serverMsg.toLowerCase().includes("image") || serverMsg.toLowerCase().includes("jpg") || serverMsg.toLowerCase().includes("png")) {
         setError("profilePhoto", "Only JPG, JPEG, and PNG images are allowed for profile photos.");
       } else if (serverMsg.toLowerCase().includes("address")) {

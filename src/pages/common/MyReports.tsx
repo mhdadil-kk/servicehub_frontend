@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Flag, Loader2, MessageSquare, AlertCircle, Calendar } from "lucide-react";
 import { useReports } from "../../hooks/useReports";
+import { getUserName, isPopulatedUser } from "../../types/domain.types";
 
 const MyReports: React.FC = () => {
   const { reports, loading, fetchMyReports } = useReports();
@@ -49,7 +50,9 @@ const MyReports: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {reports.map((report) => {
             const statusCfg = getStatusConfig(report.status);
-            const reportedUser = (report.reportedId as any)?.name || "User";
+            const reportedUser = isPopulatedUser(report.reportedId)
+              ? getUserName(report.reportedId)
+              : "User";
             
             return (
               <div key={report._id} className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-col gap-4">

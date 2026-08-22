@@ -12,21 +12,15 @@ import {
   validateFile, FILE_LIMITS, validateBio, validateBankField, 
   validateHourlyRate 
 } from '../utils/validation';
+import type { IService } from '../types/api.types';
+import { getErrorMessage } from '../utils/errors';
+import { patchLeafletDefaultIcon } from '../utils/leaflet-icon';
 
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents } from 'react-leaflet';
+import type { LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-});
+patchLeafletDefaultIcon();
 
 interface LocationMarkerProps {
   position: { lat: number; lng: number } | null;
@@ -64,6 +58,21 @@ const LocationMarker: React.FC<LocationMarkerProps> = ({ position, setPosition, 
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
+type OnboardingForm = {
+  bio: string;
+  address: string;
+  radius: number;
+  latitude: number | null;
+  longitude: number | null;
+  hourlyRate: string;
+  accountHolderName: string;
+  bankName: string;
+  accountNumber: string;
+  routingNumber: string;
+};
+
+type BankFieldKey = "accountHolderName" | "bankName" | "accountNumber" | "routingNumber";
+
 interface Props {
   isOpen: boolean;
   onComplete: () => void;
@@ -82,17 +91,17 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
 
   const clearError = (field: string) => setErrors(prev => { const next = { ...prev }; delete next[field]; return next; });
   
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<OnboardingForm>({
     bio: "",
     address: "",
     radius: 25,
-    latitude: null as number | null,
-    longitude: null as number | null,
+    latitude: null,
+    longitude: null,
     hourlyRate: "",
     accountHolderName: "",
     bankName: "",
     accountNumber: "",
-    routingNumber: ""
+    routingNumber: "",
   });
 
   const handleUseCurrentLocation = () => {
@@ -155,7 +164,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [identityDocs, setIdentityDocs] = useState<File[]>([]);
   const [licenseDocs, setLicenseDocs] = useState<File[]>([]);
-  const [availableServices, setAvailableServices] = useState<any[]>([]);
+  const [availableServices, setAvailableServices] = useState<IService[]>([]);
   const [selectedService, setSelectedService] = useState<{ _id: string; name: string } | null>(null);
 
   const profileInputRef = useRef<HTMLInputElement>(null);
@@ -179,7 +188,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
 
           if (profile.onboardingStatus === "approved" || profile.onboardingStatus === "in_review") {
             if (user) {
-              setUser({ ...user, status: profile.onboardingStatus as any });
+              setUser({ ...user, status: profile.onboardingStatus });
             }
             onComplete();
             return;
@@ -189,29 +198,31 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
             ...prev,
             bio: profile.bio || "",
             address: profile.address || "",
-            latitude: profile.location?.coordinates?.[1] || null,
-            longitude: profile.location?.coordinates?.[0] || null,
-            radius: profile.serviceRadius || prev.radius,
-            hourlyRate: profile.hourlyRate || "",
+            latitude: profile.location?.coordinates?.[1] ?? null,
+            longitude: profile.location?.coordinates?.[0] ?? null,
+            radius: profile.serviceRadius ?? prev.radius,
+            hourlyRate: profile.hourlyRate != null ? String(profile.hourlyRate) : "",
             accountHolderName: profile.bankDetails?.accountHolderName || "",
             bankName: profile.bankDetails?.bankName || "",
             accountNumber: profile.bankDetails?.accountNumber || "",
-            routingNumber: profile.bankDetails?.routingNumber || ""
+            routingNumber: profile.bankDetails?.routingNumber || "",
           }));
           if (profile.profilePhoto) setProfilePreview(profile.profilePhoto);
-          if (profile.serviceId) setSelectedService(profile.serviceId);
+          if (profile.serviceId) {
+            const match = (servicesRes.data || []).find((s) => s._id === profile.serviceId);
+            if (match) setSelectedService({ _id: match._id, name: match.name });
+          }
           setCurrentStep(profile.onboardingStep as Step);
           setProgress(profile.onboardingStep * 20);
         }
       } catch (error: unknown) {
-      const err = error as any;
-        toast.error("Initialization failed");
+        toast.error(getErrorMessage(error, "Initialization failed"));
       } finally {
         setInitialLoading(false);
       }
     };
     initOnboarding();
-  }, [isOpen]);
+  }, [isOpen, onComplete, setUser, user]);
 
   const handleNext = async () => {
     try {
@@ -313,7 +324,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
         });
 
         if (user) {
-          setUser({ ...user, status: "in_review" as any });
+          setUser({ ...user, status: "in_review" });
         }
 
         toast.success("Setup complete! Your profile is now under review.");
@@ -325,8 +336,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
       setCurrentStep(next);
       setProgress(next * 20);
     } catch (error: unknown) {
-      const err = error as any;
-      toast.error(error.message || "Action failed");
+      toast.error(getErrorMessage(error, "Action failed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -493,7 +503,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                              
                              <div className="h-[300px] w-full rounded-3xl overflow-hidden border-4 border-slate-50 relative z-0 shadow-inner">
                                <MapContainer 
-                                  center={defaultPosition as any} 
+                                  center={defaultPosition as LatLngExpression} 
                                   zoom={12} 
                                   scrollWheelZoom={false} 
                                   style={{ height: '100%', width: '100%' }}
@@ -504,7 +514,7 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                   />
                                   <LocationMarker 
                                     position={form.latitude && form.longitude ? { lat: form.latitude, lng: form.longitude } : null}
-                                    setPosition={(latlng: any) => setForm(prev => ({...prev, latitude: latlng.lat, longitude: latlng.lng}))}
+                                    setPosition={(latlng) => setForm(prev => ({...prev, latitude: latlng.lat, longitude: latlng.lng}))}
                                     setAddress={(address: string) => setForm(prev => ({...prev, address}))}
                                   />
                                   {form.latitude && form.longitude && (
@@ -647,7 +657,13 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                                     const input = document.createElement('input');
                                     input.type = 'file';
                                     input.multiple = true;
-                                    input.onchange = (e: any) => { setLicenseDocs(prev => [...prev, ...Array.from(e.target.files as FileList)]); clearError('licenseDocs'); };
+                                    input.onchange = (e: Event) => {
+                                      const target = e.target as HTMLInputElement;
+                                      if (target.files) {
+                                        setLicenseDocs(prev => [...prev, ...Array.from(target.files!)]);
+                                        clearError('licenseDocs');
+                                      }
+                                    };
                                     input.click();
                                   }}
                                   className="aspect-square rounded-[32px] border-2 border-dashed border-slate-200 bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group"
@@ -692,16 +708,16 @@ const ProviderOnboardingModal: React.FC<Props> = ({ isOpen, onComplete }) => {
                           <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full"><Lock size={12} /> Secure</span>
                        </div>
                        <div className="bg-white p-12 rounded-[48px] shadow-sm border border-slate-100 space-y-8">
-                          {[
-                            { label: "Account Holder Name", key: "accountHolderName", placeholder: "Full Name" },
-                            { label: "Bank Name", key: "bankName", placeholder: "e.g. HDFC, ICICI" },
-                            { label: "Account Number", key: "accountNumber", placeholder: "Bank Account No." },
-                            { label: "IFSC Code", key: "routingNumber", placeholder: "IFSC / Routing Code" },
-                          ].map(f => (
+                          {([
+                            { label: "Account Holder Name", key: "accountHolderName" as BankFieldKey, placeholder: "Full Name" },
+                            { label: "Bank Name", key: "bankName" as BankFieldKey, placeholder: "e.g. HDFC, ICICI" },
+                            { label: "Account Number", key: "accountNumber" as BankFieldKey, placeholder: "Bank Account No." },
+                            { label: "IFSC Code", key: "routingNumber" as BankFieldKey, placeholder: "IFSC / Routing Code" },
+                          ]).map(f => (
                             <div key={f.key} className="space-y-2">
                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{f.label}</label>
-                               <input type="text" value={(form as any)[f.key]} onChange={e => { setForm({...form, [f.key]: e.target.value}); clearError(f.key); }} placeholder={f.placeholder} className={`w-full bg-slate-50/50 border-2 rounded-[24px] px-6 py-5 text-base font-black focus:outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600 transition-all ${(errors as any)[f.key] ? 'border-red-300' : 'border-slate-50'}`} />
-                               {(errors as any)[f.key] && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{(errors as any)[f.key]}</p>}
+                               <input type="text" value={form[f.key]} onChange={e => { setForm({...form, [f.key]: e.target.value}); clearError(f.key); }} placeholder={f.placeholder} className={`w-full bg-slate-50/50 border-2 rounded-[24px] px-6 py-5 text-base font-black focus:outline-none focus:ring-8 focus:ring-blue-600/5 focus:border-blue-600 transition-all ${errors[f.key] ? 'border-red-300' : 'border-slate-50'}`} />
+                               {errors[f.key] && <p className="text-red-500 text-xs font-semibold mt-1 ml-1">{errors[f.key]}</p>}
                             </div>
                           ))}
                        </div>

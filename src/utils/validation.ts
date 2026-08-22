@@ -28,7 +28,8 @@ export function validateFile(
 
   const validExts = config.allowedExtensions.split(",").map(e => e.trim().replace(".", "").toLowerCase());
   
-  if (!validExts.includes(ext) || !config.allowedTypes.includes(file.type as any)) {
+  const allowedTypes: readonly string[] = config.allowedTypes;
+  if (!validExts.includes(ext) || !allowedTypes.includes(file.type)) {
     return {
       valid: false,
       error: `Only ${config.allowedExtensions} files are accepted.`,
