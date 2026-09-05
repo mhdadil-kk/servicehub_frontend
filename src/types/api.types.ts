@@ -22,8 +22,8 @@ export interface IUser {
   status: "approved" | "rejected" | "pending" | "in_review";
   isDeleted: boolean;
   totalBookings?: number; 
-  created_at?: string;
-  updated_at?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface AuthResponse {

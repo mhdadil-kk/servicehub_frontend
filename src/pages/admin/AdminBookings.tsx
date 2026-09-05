@@ -47,23 +47,23 @@ const AdminBookings: React.FC = () => {
       accessor: (item: AdminBookingListItem) => (
         <div>
           <p className="font-extrabold text-slate-900 text-xs">ID: {item._id.slice(-6).toUpperCase()}</p>
-          <p className="text-[10px] text-slate-400 font-bold uppercase">{item.serviceId?.name}</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase">{item.service?.name}</p>
         </div>
       )
     },
-    {
+        {
       header: "Customer",
       accessor: (item: AdminBookingListItem) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
-             {item.userId?.profilePhoto ? (
-               <img src={item.userId.profilePhoto} alt="" className="w-full h-full object-cover" />
-             ) : (
-               <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.userId?.name}`} alt="" />
-             )}
+            {item.user?.profilePhoto ? (
+              <img src={item.user.profilePhoto} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user?.name ?? "U"}`} alt="" />
+            )}
           </div>
           <div>
-            <p className="font-bold text-slate-900 text-xs">{item.userId?.name}</p>
+            <p className="font-bold text-slate-900 text-xs">{item.user?.name || "—"}</p>
           </div>
         </div>
       )
@@ -73,14 +73,18 @@ const AdminBookings: React.FC = () => {
       accessor: (item: AdminBookingListItem) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
-             {item.providerId?.profilePhoto || item.providerId?.userId?.profilePhoto ? (
-               <img src={item.providerId.profilePhoto || item.providerId.userId.profilePhoto} alt="" className="w-full h-full object-cover" />
-             ) : (
-               <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.providerId?.userId?.name}`} alt="" />
-             )}
+            {item.provider?.profilePhoto || item.provider?.userId?.profilePhoto ? (
+              <img
+                src={item.provider.profilePhoto || item.provider.userId.profilePhoto!}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.provider?.userId?.name ?? "P"}`} alt="" />
+            )}
           </div>
           <div>
-            <p className="font-bold text-slate-900 text-xs">{item.providerId?.userId?.name}</p>
+            <p className="font-bold text-slate-900 text-xs">{item.provider?.userId?.name || "—"}</p>
           </div>
         </div>
       )

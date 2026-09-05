@@ -86,5 +86,4 @@ export const generateInvoicePDF = (booking: Booking) => {
   doc.save(`Invoice_${booking._id}.pdf`);
 };
 
-// silence unused import if PopulatedUser only used via type guards in some builds
 export type { PopulatedUser };

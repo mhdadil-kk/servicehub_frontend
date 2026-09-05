@@ -172,7 +172,7 @@ const ProviderProfile: React.FC = () => {
       if (newPhoto) {
         personalData.append("profilePhoto", newPhoto);
       }
-      await updateProfile(personalData);
+      await updateProfile(personalData, true);
 
       const lat = profile?.location?.coordinates?.[1] || 30.2672; 
       const lng = profile?.location?.coordinates?.[0] || -97.7431;
@@ -181,13 +181,13 @@ const ProviderProfile: React.FC = () => {
         latitude: lat,
         longitude: lng,
         serviceRadius
-      });
+      }, true);
 
       if (selectedServiceId) {
         await updateServiceDetails({
           serviceId: selectedServiceId,
           hourlyRate
-        });
+        }, true);
       }
 
       await updateBankDetails({
@@ -195,7 +195,7 @@ const ProviderProfile: React.FC = () => {
         bankName,
         accountNumber,
         routingNumber: ifscCode
-      });
+      }, true);
 
       if ((identityFiles && identityFiles.length > 0) || (licenseFiles && licenseFiles.length > 0)) {
         const docData = new FormData();
@@ -209,9 +209,10 @@ const ProviderProfile: React.FC = () => {
             docData.append("license", licenseFiles[i]);
           }
         }
-        await uploadDocuments(docData);
+        await uploadDocuments(docData, true);
       }
 
+      toast.success("Profile updated successfully!");
       loadData();
     } catch (err: unknown) {
       console.error(err);

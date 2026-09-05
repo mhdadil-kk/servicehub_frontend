@@ -23,7 +23,7 @@ export interface Booking {
   };
   service?: { _id: string; name: string; description?: string };
   address?: { _id: string; label: string; fullAddress: string; latitude?: number; longitude?: number };
-  user?: { _id: string; name: string; profilePhoto?: string };
+  user?: { _id: string; name: string; email?: string; phone?: string; profilePhoto?: string };
   date: string;
   slot: { start: string; end: string };
   status: string;

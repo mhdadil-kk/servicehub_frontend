@@ -42,12 +42,14 @@ export const useProviderProfile = () => {
     }
   }, []);
 
-  const updateProfile = useCallback(async (formData: FormData) => {
+  const updateProfile = useCallback(async (formData: FormData, silent = false) => {
     try {
       setSaving(true);
       const res = await providerApi.updateProfile(formData);
       setProfile(res.data);
-      toast.success("Profile updated successfully!");
+      if (!silent) {
+        toast.success("Profile updated successfully!");
+      }
       return res.data;
     } catch (error) {
       toast.error("Failed to update profile.");
@@ -57,12 +59,14 @@ export const useProviderProfile = () => {
     }
   }, []);
 
-  const updateLocation = useCallback(async (data: Parameters<typeof providerApi.updateLocation>[0]) => {
+  const updateLocation = useCallback(async (data: Parameters<typeof providerApi.updateLocation>[0], silent = false) => {
     try {
       setSaving(true);
       const res = await providerApi.updateLocation(data);
       setProfile(res.data);
-      toast.success("Location updated successfully!");
+      if (!silent) {
+        toast.success("Location updated successfully!");
+      }
       return res.data;
     } catch (error) {
       toast.error("Failed to update location.");
@@ -72,12 +76,14 @@ export const useProviderProfile = () => {
     }
   }, []);
 
-  const updateServiceDetails = useCallback(async (data: Parameters<typeof providerApi.updateServiceDetails>[0]) => {
+  const updateServiceDetails = useCallback(async (data: Parameters<typeof providerApi.updateServiceDetails>[0], silent = false) => {
     try {
       setSaving(true);
       const res = await providerApi.updateServiceDetails(data);
       setProfile(res.data);
-      toast.success("Service details updated successfully!");
+      if (!silent) {
+        toast.success("Service details updated successfully!");
+      }
       return res.data;
     } catch (error) {
       toast.error("Failed to update service details.");
@@ -87,12 +93,14 @@ export const useProviderProfile = () => {
     }
   }, []);
 
-  const updateBankDetails = useCallback(async (data: Parameters<typeof providerApi.updateBankDetails>[0]) => {
+  const updateBankDetails = useCallback(async (data: Parameters<typeof providerApi.updateBankDetails>[0], silent = false) => {
     try {
       setSaving(true);
       const res = await providerApi.updateBankDetails(data);
       setProfile(res.data);
-      toast.success("Bank details updated successfully!");
+      if (!silent) {
+        toast.success("Bank details updated successfully!");
+      }
       return res.data;
     } catch (error) {
       toast.error("Failed to update bank details.");
@@ -102,12 +110,14 @@ export const useProviderProfile = () => {
     }
   }, []);
 
-  const uploadDocuments = useCallback(async (formData: FormData) => {
+  const uploadDocuments = useCallback(async (formData: FormData, silent = false) => {
     try {
       setSaving(true);
       const res = await providerApi.uploadDocuments(formData);
       setProfile(res.data);
-      toast.success("Documents uploaded successfully!");
+      if (!silent) {
+        toast.success("Documents uploaded successfully!");
+      }
       return res.data;
     } catch (error) {
       toast.error("Failed to upload documents.");

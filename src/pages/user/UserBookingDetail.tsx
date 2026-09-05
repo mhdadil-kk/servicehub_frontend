@@ -122,7 +122,7 @@ const UserBookingDetail: React.FC = () => {
   useEffect(() => {
     if (!bookingId) return;
     fetchBookingData();
-    fetchWalletData().catch(() => {});
+    fetchWalletData().catch(() => { });
   }, [bookingId, fetchBookingData, fetchWalletData]);
 
   const handleCancel = async () => {
@@ -179,7 +179,7 @@ const UserBookingDetail: React.FC = () => {
       toast.dismiss();
       toast.success("Payment successful!");
       fetchBookingData();
-      fetchWalletData().catch(() => {});
+      fetchWalletData().catch(() => { });
     } catch (err: unknown) {
       toast.dismiss();
       toast.error(getErrorMessage(err, "Failed to process wallet payment"));
@@ -246,16 +246,31 @@ const UserBookingDetail: React.FC = () => {
     );
   }
 
-const providerInfo = isPopulatedProvider(booking.provider || booking.providerId)
-  ? (booking.provider || booking.providerId) as PopulatedProviderProfile
-  : null;
-const serviceInfo = isPopulatedService(booking.service || booking.serviceId)
-  ? (booking.service || booking.serviceId) as PopulatedService
-  : null;
-const addressInfo = isPopulatedAddress(booking.address || booking.addressId)
-  ? (booking.address || booking.addressId) as PopulatedAddress
-  : null;
-const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? providerInfo.userId : null;
+  const providerInfo = isPopulatedProvider(booking.provider || booking.providerId)
+    ? (booking.provider || booking.providerId) as PopulatedProviderProfile
+    : null;
+  const serviceInfo = isPopulatedService(booking.service || booking.serviceId)
+    ? (booking.service || booking.serviceId) as PopulatedService
+    : null;
+  const addressInfo = isPopulatedAddress(booking.address || booking.addressId)
+    ? (booking.address || booking.addressId) as PopulatedAddress
+    : null;
+  const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? providerInfo.userId : null;
+
+  const providerName =
+    providerUser?.name ||
+    (providerInfo && typeof providerInfo.userId === "object" && providerInfo.userId !== null && "name" in providerInfo.userId
+      ? (providerInfo.userId as { name: string }).name
+      : null) ||
+    "Provider";
+
+  const providerPhoto =
+    providerInfo?.profilePhoto ||
+    providerUser?.profilePhoto ||
+    (providerInfo && typeof providerInfo.userId === "object" && providerInfo.userId !== null && "profilePhoto" in providerInfo.userId
+      ? (providerInfo.userId as { profilePhoto?: string }).profilePhoto
+      : undefined);
+
   const walletBalance = wallet?.balance ?? 0;
 
   const isPending = booking.status === "pending";
@@ -289,17 +304,16 @@ const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? prov
               </span>
               <span className="w-1 h-1 rounded-full bg-slate-300" />
               <span
-                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${
-                  isConfirmed ? "bg-blue-100 text-blue-600" :
+                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${isConfirmed ? "bg-blue-100 text-blue-600" :
                   isInProgress ? "bg-purple-100 text-purple-600" :
-                  isPendingPayment ? "bg-indigo-100 text-indigo-600" :
-                  isAwaitingPayment ? "bg-indigo-100 text-indigo-600" :
-                  isAwaitingConfirmation ? "bg-purple-100 text-purple-700" :
-                  isProviderRescheduled ? "bg-purple-100 text-purple-700" :
-                  isCompleted ? "bg-emerald-100 text-emerald-600" :
-                  isCancelled ? "bg-rose-100 text-rose-600" :
-                  "bg-amber-100 text-amber-600"
-                }`}
+                    isPendingPayment ? "bg-indigo-100 text-indigo-600" :
+                      isAwaitingPayment ? "bg-indigo-100 text-indigo-600" :
+                        isAwaitingConfirmation ? "bg-purple-100 text-purple-700" :
+                          isProviderRescheduled ? "bg-purple-100 text-purple-700" :
+                            isCompleted ? "bg-emerald-100 text-emerald-600" :
+                              isCancelled ? "bg-rose-100 text-rose-600" :
+                                "bg-amber-100 text-amber-600"
+                  }`}
               >
                 {isProviderRescheduled ? "Rescheduled by Provider" : booking.status.replace(/_/g, " ")}
               </span>
@@ -308,21 +322,56 @@ const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? prov
         </div>
       </div>
 
-      {/* ── Provider Info ───────────────────────────────────────────────── */}
-      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-sm shrink-0">
-            <img
-              src={providerUser?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${providerUser?.name || "Provider"}`}
-              alt={providerUser?.name}
-              className="w-full h-full object-cover"
-            />
+      {/* ── Provider & Service Details Card ─────────────────────────────── */}
+      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-sm shrink-0">
+              <img
+                src={providerPhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${providerName}`}
+                alt={providerName}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Service Provider</p>
+              <h3 className="text-xl font-black text-slate-900">{providerName}</h3>
+              {providerUser?.phone && (
+                <p className="text-xs font-semibold text-slate-500 mt-0.5">📞 {providerUser.phone}</p>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Service Provider</p>
-            <h3 className="text-lg font-black text-slate-900">{providerUser?.name || "Provider"}</h3>
-            <p className="text-xs font-bold text-blue-600 mt-0.5">{serviceInfo?.name}</p>
+
+          {providerUser?._id && (
+            <button
+              onClick={() => navigate(`/user/messages?userId=${providerUser._id}`)}
+              className="inline-flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl transition-colors"
+            >
+              Message Provider
+            </button>
+          )}
+        </div>
+
+        {/* Service Details Card */}
+        <div className="bg-slate-50 rounded-2xl p-5 space-y-2 border border-slate-100">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
+              Booked Service
+            </span>
+            {providerInfo?.hourlyRate && (
+              <span className="text-xs font-bold text-slate-600">
+                Rate: <strong className="text-slate-900">₹{providerInfo.hourlyRate}/hr</strong>
+              </span>
+            )}
           </div>
+          <h4 className="text-base font-black text-slate-900">
+            {serviceInfo?.name || "Professional Home Service"}
+          </h4>
+          {serviceInfo?.description && (
+            <p className="text-xs font-medium text-slate-500 leading-relaxed">
+              {serviceInfo.description}
+            </p>
+          )}
         </div>
       </div>
 
@@ -497,47 +546,58 @@ const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? prov
             )}
 
             {/* ── Final Invoice ── */}
-            {isPendingPayment && (
-              <div className="w-full flex flex-col gap-4">
-                {/* ── Invoice Breakdown above Pay Button ── */}
-                {booking.finalInvoice && (
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-3 w-full">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">Final Invoice Breakdown</h4>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-slate-600">Base Labor Charge</span>
-                      <span className="text-sm font-black text-slate-900">₹{booking.finalInvoice.baseCharge}</span>
-                    </div>
-                    {booking.finalInvoice.extraCharges?.map((charge, idx) => (
-                      <div key={idx} className="flex justify-between items-center">
-                        <span className="text-sm font-bold text-slate-600">Extra: {charge.description}</span>
-                        <span className="text-sm font-black text-slate-900">₹{charge.amount}</span>
+            {isPendingPayment && (() => {
+              const remainingBalance = Math.max(0, (booking.totalAmount || 0) - 100);
+              return (
+                <div className="w-full flex flex-col gap-4">
+                  {/* ── Invoice Breakdown above Pay Button ── */}
+                  {booking.finalInvoice && (
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-3 w-full">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">Final Invoice Breakdown</h4>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-bold text-slate-600">Base Labor Charge</span>
+                        <span className="text-sm font-black text-slate-900">₹{booking.finalInvoice.baseCharge}</span>
                       </div>
-                    ))}
-                    <div className="pt-3 mt-3 border-t border-slate-200 flex justify-between items-center">
-                      <span className="text-sm font-black text-slate-900">Total Amount to Pay</span>
-                      <span className="text-xl font-black text-indigo-700">₹{booking.totalAmount}</span>
+                      {booking.finalInvoice.extraCharges?.map((charge, idx) => (
+                        <div key={idx} className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-slate-600">Extra: {charge.description}</span>
+                          <span className="text-sm font-black text-slate-900">₹{charge.amount}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center text-xs text-slate-500 pt-1 border-t border-slate-100">
+                        <span>Total Job Amount</span>
+                        <span className="font-bold text-slate-700">₹{booking.totalAmount}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-emerald-600">
+                        <span>Platform Booking Fee Paid</span>
+                        <span className="font-bold">-₹100</span>
+                      </div>
+                      <div className="pt-3 mt-1 border-t border-slate-200 flex justify-between items-center">
+                        <span className="text-sm font-black text-slate-900">Remaining Balance to Pay</span>
+                        <span className="text-xl font-black text-indigo-700">₹{remainingBalance}</span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <button
-                  onClick={handlePayInvoice}
-                  disabled={isSubmitting}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-indigo-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
-                >
-                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                  Pay Final Invoice (₹{booking.totalAmount})
-                </button>
-                <button
-                  onClick={handlePayWithWallet}
-                  disabled={isSubmitting || !wallet || walletBalance < (booking.totalAmount ?? 0)}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
-                >
-                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
-                  Pay from Wallet {!wallet || walletBalance < (booking.totalAmount ?? 0) ? "(Insufficient Balance)" : `(Bal: ₹${walletBalance})`}
-                </button>
-              </div>
-            )}
+                  <button
+                    onClick={handlePayInvoice}
+                    disabled={isSubmitting}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-indigo-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                    Pay Final Balance (₹{remainingBalance})
+                  </button>
+                  <button
+                    onClick={handlePayWithWallet}
+                    disabled={isSubmitting || !wallet || walletBalance < remainingBalance}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-sm px-6 py-4 rounded-2xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
+                    Pay from Wallet {!wallet || walletBalance < remainingBalance ? "(Insufficient Balance)" : `(Bal: ₹${walletBalance})`}
+                  </button>
+                </div>
+              );
+            })()}
 
             {isPending && (
               <div className="w-full bg-amber-50 border border-amber-100 rounded-2xl p-5 text-center">
@@ -652,6 +712,7 @@ const providerUser = providerInfo && isPopulatedUser(providerInfo.userId) ? prov
           bookingId={booking._id}
           providerId={typeof booking.providerId === "object" ? booking.providerId._id : booking.providerId}
           providerName={providerUser.name}
+          onSuccess={() => { setIsReviewModalOpen(false); fetchBookingData(); }}
         />
       )}
 

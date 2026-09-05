@@ -160,10 +160,19 @@ export interface AdminBookingListItem {
   slot?: { start: string; end: string };
   status: string;
   totalAmount?: number;
-  userId?: PopulatedUser;
-  providerId?: PopulatedProviderProfile & { userId?: PopulatedUser };
-  serviceId?: PopulatedService;
-  addressId?: PopulatedAddress & { street?: string; city?: string; state?: string; zipCode?: string };
+  userId?: string;
+  providerId?: string;
+  serviceId?: string;
+  addressId?: { _id?: string; street?: string; city?: string; state?: string; zipCode?: string; fullAddress?: string };
+  user?: { _id: string; name: string; profilePhoto?: string; email?: string; phone?: string };
+    provider?: {
+    _id: string;
+    userId: { name: string; email?: string; phone?: string; profilePhoto?: string };
+    profilePhoto?: string;
+    hourlyRate?: number;
+  };
+  service?: { _id: string; name: string; description?: string };
+  address?: { _id: string; label: string; fullAddress: string };
   completionInvoice?: {
     additionalCharges?: number;
     finalAmount?: number;

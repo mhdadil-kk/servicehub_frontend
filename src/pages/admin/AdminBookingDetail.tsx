@@ -108,24 +108,24 @@ const AdminBookingDetail: React.FC = () => {
 
             <div className="flex items-start gap-6">
               <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 p-1 shrink-0 shadow-sm">
-                {booking.providerId?.profilePhoto || booking.providerId?.userId?.profilePhoto ? (
-                  <img src={booking.providerId.profilePhoto || booking.providerId.userId.profilePhoto} alt="" className="w-full h-full rounded-xl object-cover" />
+                {booking.provider?.profilePhoto || booking.provider?.userId?.profilePhoto ? (
+                  <img src={booking.provider.profilePhoto || booking.provider.userId.profilePhoto} alt="" className="w-full h-full rounded-xl object-cover" />
                 ) : (
-                  <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${booking.providerId?.userId?.name}`} alt="" className="w-full h-full rounded-xl" />
+                  <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${booking.provider?.userId?.name}`} alt="" className="w-full h-full rounded-xl" />
                 )}
               </div>
               <div className="space-y-4 flex-1">
                 <div>
-                  <h4 className="text-lg font-black text-slate-900">{booking.providerId?.userId?.name}</h4>
+                  <h4 className="text-lg font-black text-slate-900">{booking.provider?.userId?.name}</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 text-sm font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl">
                     <Mail size={16} className="text-slate-400" />
-                    {booking.providerId?.userId?.email}
+                    {booking.provider?.userId?.email}
                   </div>
                   <div className="flex items-center gap-3 text-sm font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl">
                     <Phone size={16} className="text-slate-400" />
-                    {booking.providerId?.userId?.phone || 'Not provided'}
+                    {booking.provider?.userId?.phone || 'Not provided'}
                   </div>
                 </div>
               </div>
@@ -140,8 +140,8 @@ const AdminBookingDetail: React.FC = () => {
             </h3>
             <div className="space-y-4">
               <div className="bg-slate-50 p-4 rounded-xl">
-                <h4 className="text-sm font-bold text-slate-900">{booking.serviceId?.name}</h4>
-                <p className="text-xs text-slate-500 mt-1">{booking.serviceId?.description}</p>
+                <h4 className="text-sm font-bold text-slate-900">{booking.service?.name}</h4>
+                <p className="text-xs text-slate-500 mt-1">{booking.service?.description}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -161,14 +161,21 @@ const AdminBookingDetail: React.FC = () => {
                 </div>
               </div>
 
-              {booking.addressId && (
-                <div className="bg-slate-50 p-4 rounded-xl flex items-start gap-3">
-                  <MapPin size={18} className="text-rose-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Service Location</p>
-                    <p className="text-xs font-bold text-slate-900 mt-0.5">{booking.addressId.street}, {booking.addressId.city}, {booking.addressId.state} {booking.addressId.zipCode}</p>
-                  </div>
-                </div>
+                            {booking.address && (
+                 <div className="bg-slate-50 p-4 rounded-xl flex items-start gap-3">
+                    <MapPin size={18} className="text-rose-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Service Location</p>
+                      <p className="text-xs font-bold text-slate-900 mt-0.5">
+                        {booking.address.fullAddress}
+                      </p>
+                      {booking.address.label && booking.address.fullAddress && (
+                        <span className="inline-block mt-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                          {booking.address.label}
+                        </span>
+                      )}
+                    </div>
+                 </div>
               )}
             </div>
           </div>

@@ -67,8 +67,8 @@ const AdminUsers: React.FC = () => {
       header: "Joined Date",
       accessor: (item: IUser) => (
         <span className="text-slate-500 font-bold text-xs uppercase">
-          {item.created_at
-            ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          {item.createdAt
+            ? new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
             : '—'}
         </span>
       )
@@ -93,14 +93,6 @@ const AdminUsers: React.FC = () => {
         </div>
       )
     },
-    // {
-    //   header: "Total Booking",
-    //   accessor: (item: IUser)=>(
-    //     <span className="font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full text-xs">
-    //       {item.totalBookings || 0} Bookings
-    //     </span>
-    //   )
-    // }
   ];
 
   return (

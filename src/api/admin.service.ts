@@ -2,6 +2,7 @@ import axiosInstance from "./axios.instance";
 import { API_ROUTES } from "../constants/api.routes";
 import type { ApiResponse, IUser, IService } from "../types/api.types";
 import type { Provider } from "../types/provider.types";
+import type { AdminBookingListItem } from "../types/domain.types";
 
 export const adminService = {
   getAllUsers: (search?: string, status?: string, sort?: string, page?: number, limit?: number) =>
@@ -45,10 +46,15 @@ export const adminService = {
     axiosInstance.get(API_ROUTES.ADMIN.DASHBOARD_STATS, { params: { timeRange } }),
 
   getAllBookings: (search?: string, status?: string, sort?: string, page?: number, limit?: number) =>
-    axiosInstance.get(API_ROUTES.ADMIN.ALL_BOOKINGS, { params: { search, status, sort, page, limit } }),
+    axiosInstance.get<unknown, ApiResponse<{ bookings: AdminBookingListItem[]; total: number }>>(
+      API_ROUTES.ADMIN.ALL_BOOKINGS,
+      { params: { search, status, sort, page, limit } }
+    ),
 
   getBookingById: (id: string) =>
-    axiosInstance.get(API_ROUTES.ADMIN.BOOKING_BY_ID(id)),
+    axiosInstance.get<unknown, ApiResponse<AdminBookingListItem>>(
+      API_ROUTES.ADMIN.BOOKING_BY_ID(id)
+    ),
 
   getRevenueReport: (timeRange?: string) =>
     axiosInstance.get(API_ROUTES.ADMIN.DASHBOARD_REVENUE, { params: { timeRange } }),

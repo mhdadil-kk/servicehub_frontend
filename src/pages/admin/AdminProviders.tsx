@@ -50,12 +50,16 @@ const AdminProviders: React.FC = () => {
   };
 
   const columns = [
-    {
+        {
       header: "Provider Details",
       accessor: (item: IUser) => (
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 overflow-hidden">
-            <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.name}`} alt="" />
+            {item.profilePhoto ? (
+              <img src={item.profilePhoto} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.name}`} alt="" />
+            )}
           </div>
           <div>
             <p className="font-extrabold text-slate-900">{item.name}</p>
@@ -78,8 +82,8 @@ const AdminProviders: React.FC = () => {
       header: "Joined Date",
       accessor: (item: IUser) => (
         <span className="text-slate-500 font-bold text-xs uppercase">
-          {item.created_at
-            ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          {item.createdAt
+            ? new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
             : '—'}
         </span>
       )

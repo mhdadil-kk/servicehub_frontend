@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Trash2, PlusCircle, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { useProviderProfile } from "../../hooks/useProviderProfile";

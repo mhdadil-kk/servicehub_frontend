@@ -31,8 +31,7 @@ export const useReports = () => {
     setLoading(true);
     try {
       const res = await reportApi.getAllReports({ page, limit: 10, status, search });
-      // res = ApiResponse<ReportsPage>
-      // res.data = { reports: [...], total: N }
+
       const list = res.data?.reports;
       setReports(Array.isArray(list) ? list : []);
       setTotal(res.data?.total || 0);
@@ -61,7 +60,6 @@ export const useReports = () => {
     setIsSubmitting(true);
     try {
       const res = await reportApi.takeAction(id, payload);
-      // res = ApiResponse<Report>, res.data = Report object
       const updated = res.data;
       if (!updated) throw new Error("No data returned");
       toast.success("Action taken successfully.");

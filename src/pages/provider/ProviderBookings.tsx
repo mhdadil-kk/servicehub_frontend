@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useBooking } from "../../hooks/useBooking";
 import type { Booking } from "../../api/booking.service";
-import { isPopulatedUser } from "../../types/domain.types";
+import { isPopulatedUser, isPopulatedService, isPopulatedAddress } from "../../types/domain.types";
 
 const ProviderBookings: React.FC = () => {
   const { bookings, isLoadingBookings: isLoading, fetchProviderBookings, acceptBooking, cancelBooking } = useBooking();
@@ -134,9 +134,9 @@ const ProviderBookings: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {filteredBookings.map((booking) => {
-            const customer = typeof booking.userId === "object" ? booking.userId : null;
-            const serviceInfo = typeof booking.serviceId === "object" ? booking.serviceId : null;
-            const addressInfo = typeof booking.addressId === "object" ? booking.addressId : null;
+            const customer = isPopulatedUser(booking.user) ? booking.user : isPopulatedUser(booking.userId) ? booking.userId : null;
+            const serviceInfo = isPopulatedService(booking.service) ? booking.service : isPopulatedService(booking.serviceId) ? booking.serviceId : null;
+            const addressInfo = isPopulatedAddress(booking.address) ? booking.address : isPopulatedAddress(booking.addressId) ? booking.addressId : null;
 
             return (
               <div 
@@ -149,8 +149,9 @@ const ProviderBookings: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                       <img
-                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${customer?.name || "C"}`}
+                        src={customer?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${customer?.name || "C"}`}
                         alt=""
+                        className="w-full h-full object-cover"
                       />
                     </div>
                     <div>

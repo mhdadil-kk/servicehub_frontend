@@ -393,7 +393,7 @@ const addressInfo = isPopulatedAddress(booking.address || booking.addressId)
                         )}
                         {booking.status === "completed_pending_payment" && (
                           <button onClick={() => { handlePayInvoice(booking._id); setOpenMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50 font-bold">
-                            <CheckCircle2 size={15} /> Pay ₹{booking.totalAmount}
+                            <CheckCircle2 size={15} /> Pay ₹{Math.max(0, (booking.totalAmount || 0) - 100)}
                           </button>
                         )}
                         <button onClick={() => navigate(`/user/bookings/${booking._id}`)} className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-50 border-t border-slate-100">

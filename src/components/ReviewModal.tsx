@@ -9,7 +9,7 @@ interface ReviewModalProps {
   onClose: () => void;
   bookingId: string;
   providerName: string;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, bookingId, providerName, onSuccess }) => {
@@ -36,7 +36,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, booki
       const res = await reviewService.createReview({ bookingId, rating, reviewText });
       const msg = res.message || "";
       toast.success(msg === "Review already submitted" ? "Review was already saved!" : "Review submitted successfully!");
-      onSuccess();
+      onSuccess?.();
       onClose();
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Failed to submit review"));

@@ -28,7 +28,7 @@ import ReportModal from "../../components/shared/ReportModal";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { patchLeafletDefaultIcon } from "../../utils/leaflet-icon";
-import { isPopulatedProvider, isPopulatedService } from "../../types/domain.types";
+import { isPopulatedProvider, isPopulatedService, isPopulatedUser, isPopulatedAddress } from "../../types/domain.types";
 import { getId } from "../../types/domain.types";
 
 patchLeafletDefaultIcon();
@@ -168,14 +168,18 @@ const ProviderBookingDetail: React.FC = () => {
 
   useEffect(() => {
     if (booking) {
-      const providerInfo = isPopulatedProvider(booking.providerId) ? booking.providerId : null;
-      if (providerInfo?.hourlyRate) {
-        setInvoiceBaseCharge(providerInfo.hourlyRate.toString());
-      } else if (isPopulatedService(booking.serviceId) && booking.serviceId.basePrice) {
-        setInvoiceBaseCharge(booking.serviceId.basePrice.toString());
+      const defaultRate =
+        booking.provider?.hourlyRate ??
+        (isPopulatedProvider(booking.providerId) ? booking.providerId.hourlyRate : undefined) ??
+        (isPopulatedService(booking.service) && 'basePrice' in booking.service ? (booking.service as { basePrice?: number }).basePrice : undefined) ??
+        (isPopulatedService(booking.serviceId) && 'basePrice' in booking.serviceId ? (booking.serviceId as { basePrice?: number }).basePrice : undefined) ??
+        500;
+
+      if (defaultRate && !invoiceBaseCharge) {
+        setInvoiceBaseCharge(defaultRate.toString());
       }
     }
-  }, [booking]);
+  }, [booking, invoiceBaseCharge]);
 
   const handleAccept = async () => {
     if (!booking) return;
@@ -195,13 +199,12 @@ const ProviderBookingDetail: React.FC = () => {
     try {
       const res = await generateArrivalOtp(booking._id);
       if (res) {
+        setBooking(res);
         setShowArrivalModal(true);
-        const detail = await getBookingDetail(booking._id);
-        setBooking(detail);
         toast.success("Arrival marked. Customer can see the OTP now.");
       }
     } catch {
-      toast.error("Failed to accept booking.");
+      toast.error("Failed to mark arrival.");
     }
   };
 
@@ -212,11 +215,10 @@ const ProviderBookingDetail: React.FC = () => {
       if (res) {
         setShowArrivalModal(false);
         setArrivalOtp("");
-        const detail = await getBookingDetail(booking._id);
-        setBooking(detail);
+        setBooking(res);
       }
     } catch {
-      toast.error("Failed to accept booking.");
+      toast.error("Failed to verify arrival OTP.");
     }
   };
 
@@ -229,13 +231,12 @@ const ProviderBookingDetail: React.FC = () => {
       });
       if (res) {
         setShowInvoiceModal(false);
+        setBooking(res);
         setShowCompletionModal(true);
-        const detail = await getBookingDetail(booking._id);
-        setBooking(detail);
         toast.success("Invoice saved. Customer can see the Completion OTP.");
       }
     } catch {
-      toast.error("Failed to accept booking.");
+      toast.error("Failed to generate completion OTP.");
     }
   };
 
@@ -246,11 +247,10 @@ const ProviderBookingDetail: React.FC = () => {
       if (res) {
         setShowCompletionModal(false);
         setCompletionOtp("");
-        const detail = await getBookingDetail(booking._id);
-        setBooking(detail);
+        setBooking(res);
       }
     } catch {
-      toast.error("Failed to accept booking.");
+      toast.error("Failed to verify completion OTP.");
     }
   };
 
@@ -268,7 +268,7 @@ const ProviderBookingDetail: React.FC = () => {
         navigate(`/provider/bookings/${res._id}`);
       }
     } catch {
-      toast.error("Failed to accept booking.");
+      toast.error("Failed to propose reschedule.");
     }
   };
 
@@ -288,7 +288,7 @@ const ProviderBookingDetail: React.FC = () => {
         setBooking(detail);
       }
     } catch {
-      toast.error("Failed to accept booking.");
+      // Handled by hook error notification
     }
   };
 
@@ -332,9 +332,9 @@ const ProviderBookingDetail: React.FC = () => {
     );
   }
 
-  const customer = typeof booking.userId === "object" ? booking.userId : null;
-  const serviceInfo = typeof booking.serviceId === "object" ? booking.serviceId : null;
-  const addressInfo = typeof booking.addressId === "object" ? booking.addressId : null;
+  const customer = isPopulatedUser(booking.user) ? booking.user : isPopulatedUser(booking.userId) ? booking.userId : null;
+  const serviceInfo = isPopulatedService(booking.service) ? booking.service : isPopulatedService(booking.serviceId) ? booking.serviceId : null;
+  const addressInfo = isPopulatedAddress(booking.address) ? booking.address : isPopulatedAddress(booking.addressId) ? booking.addressId : null;
 
   const isPending = booking.status === "pending";
   const isAwaitingPayment = booking.status === "awaiting_payment";
@@ -376,7 +376,7 @@ const ProviderBookingDetail: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
             <img
-              src={`https://api.dicebear.com/7.x/initials/svg?seed=${customer?.name ?? "C"}`}
+              src={customer?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${customer?.name ?? "C"}`}
               alt={customer?.name ?? "Customer"}
               className="w-full h-full object-cover"
             />
@@ -802,9 +802,10 @@ const ProviderBookingDetail: React.FC = () => {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Base Labor Charge (₹)</label>
                 <input
                   type="number"
+                  placeholder="Enter base labor charge"
                   value={invoiceBaseCharge}
-                  disabled
-                  className="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed font-bold"
+                  onChange={(e) => setInvoiceBaseCharge(e.target.value)}
+                  className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 font-bold focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
 
@@ -864,7 +865,7 @@ const ProviderBookingDetail: React.FC = () => {
 
             <button 
               onClick={handleGenerateCompletionOtp} 
-              disabled={isSubmitting || !invoiceBaseCharge} 
+              disabled={isSubmitting || !invoiceBaseCharge || Number(invoiceBaseCharge) <= 0} 
               className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl disabled:opacity-50"
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Save Invoice & Generate OTP"}
