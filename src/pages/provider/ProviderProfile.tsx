@@ -3,13 +3,17 @@ import { validateFile, FILE_LIMITS, validateBio, validateHourlyRate, validateBan
 import { useProviderProfile } from "../../hooks/useProviderProfile";
 import { useAuthStore } from "../../store/useAuthStore";
 import toast from "react-hot-toast";
-import { 
-  Camera, RefreshCw, CheckCircle, ChevronRight, Briefcase, 
+import {
+  Camera, RefreshCw, CheckCircle, ChevronRight, Briefcase,
   User, MapPin, DollarSign, FileText, ExternalLink, Shield, CreditCard, Lock,
   Mail, Phone, AlertTriangle, Clock, Star, Heart, Loader2
 } from "lucide-react";
 import { ChangePasswordModal } from "../../components/ChangePasswordModal";
 import type { ProviderDocumentEntry } from "../../types/domain.types";
+import {
+  isPopulatedUser,
+  isPopulatedService,
+} from "../../types/domain.types";
 
 const ProviderProfile: React.FC = () => {
   const { user, setUser } = useAuthStore();
@@ -53,14 +57,15 @@ const ProviderProfile: React.FC = () => {
           setUser({ ...user, status: prof.onboardingStatus });
         }
 
-        const userObj = prof.userId || {};
-        setName(userObj.name || "");
-        setPhone(userObj.phone || "");
+        const userObj = typeof prof.userId === "object" ? prof.userId : undefined;
+        setName(userObj?.name || "");
+        setPhone(userObj?.phone || "");
         setBio(prof.bio || "");
         setAddress(prof.address || "");
         setServiceRadius(prof.serviceRadius || 25);
-        
-        const svcId = typeof prof.serviceId === 'object' && prof.serviceId ? prof.serviceId._id : (prof.serviceId || "");
+
+        const svcId = isPopulatedService(prof.serviceId) ? prof.serviceId._id : prof.serviceId || "";
+
         setSelectedServiceId(svcId);
         setHourlyRate(prof.hourlyRate || 0);
 
@@ -69,10 +74,10 @@ const ProviderProfile: React.FC = () => {
         setBankName(bank.bankName || "");
         setAccountNumber(bank.accountNumber || "");
         setIfscCode(bank.routingNumber || "");
-        
+
         if (prof.profilePhoto) {
-          const photoUrl = prof.profilePhoto.startsWith("http") 
-            ? prof.profilePhoto 
+          const photoUrl = prof.profilePhoto.startsWith("http")
+            ? prof.profilePhoto
             : `http://localhost:5000/${prof.profilePhoto.replace(/\\/g, "/")}`;
           setProfilePhotoUrl(photoUrl);
         }
@@ -139,20 +144,20 @@ const ProviderProfile: React.FC = () => {
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    
+
     const newErrors: Record<string, string> = {};
     const bioErr = validateBio(bio);
     if (bioErr) newErrors.bio = bioErr;
-    
+
     const rateErr = validateHourlyRate(hourlyRate);
     if (rateErr) newErrors.hourlyRate = rateErr;
-    
+
     const ahErr = validateBankField(accountHolderName, "Account holder name");
     if (ahErr) newErrors.accountHolderName = ahErr;
-    
+
     const anErr = validateBankField(accountNumber, "Account number", 8);
     if (anErr) newErrors.accountNumber = anErr;
-    
+
     const rnErr = validateBankField(ifscCode, "IFSC code", 5);
     if (rnErr) newErrors.ifscCode = rnErr;
 
@@ -161,7 +166,7 @@ const ProviderProfile: React.FC = () => {
       toast.error("Please fix the validation errors in the form.");
       return;
     }
-    
+
     setErrors({});
 
     try {
@@ -174,7 +179,7 @@ const ProviderProfile: React.FC = () => {
       }
       await updateProfile(personalData, true);
 
-      const lat = profile?.location?.coordinates?.[1] || 30.2672; 
+      const lat = profile?.location?.coordinates?.[1] || 30.2672;
       const lng = profile?.location?.coordinates?.[0] || -97.7431;
       await updateLocation({
         address,
@@ -268,7 +273,9 @@ const ProviderProfile: React.FC = () => {
               {getStatusBadge(profile?.onboardingStatus || "pending")}
             </div>
             <p className="text-slate-400 text-sm font-semibold mt-1 flex items-center justify-center md:justify-start gap-1">
-              <Briefcase size={14} /> {profile?.serviceId?.name || "Professional"} Provider
+              <Briefcase size={14} /> {isPopulatedService(profile?.serviceId)
+                ? profile.serviceId.name
+                : "Professional"} Provider
             </p>
             <p className="text-slate-500 text-xs font-semibold mt-1 flex items-center justify-center md:justify-start gap-1">
               <MapPin size={14} /> {address || "No address set"}
@@ -294,7 +301,7 @@ const ProviderProfile: React.FC = () => {
 
       {/* --- DETAILS GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        
+
         {/* Navigation Sidebar */}
         <div className="md:col-span-1 space-y-2">
           {[
@@ -310,11 +317,10 @@ const ProviderProfile: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-left font-black text-sm uppercase tracking-wider transition-all ${
-                  isSelected 
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
-                    : "bg-white text-slate-400 hover:text-slate-900 border border-slate-50"
-                }`}
+                className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-left font-black text-sm uppercase tracking-wider transition-all ${isSelected
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
+                  : "bg-white text-slate-400 hover:text-slate-900 border border-slate-50"
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <tab.icon size={18} />
@@ -330,7 +336,7 @@ const ProviderProfile: React.FC = () => {
         <div className="md:col-span-3">
           <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
             <form onSubmit={handleSave} className="space-y-6">
-              
+
               {/* === TAB 1: PERSONAL INFO === */}
               {activeTab === "personal" && (
                 <div className="space-y-6">
@@ -338,7 +344,7 @@ const ProviderProfile: React.FC = () => {
                     <h3 className="text-lg font-black text-slate-900 mb-1">Personal Details</h3>
                     <p className="text-slate-400 text-xs font-semibold">Manage your name, contact phone, and professional bio.</p>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><User size={12} /> Full Name</label>
@@ -356,7 +362,11 @@ const ProviderProfile: React.FC = () => {
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Mail size={12} /> Email Address</label>
                       <input
                         type="email"
-                        value={user?.email || profile?.userId?.email || ""}
+                        value={
+                          user?.email ||
+                          (isPopulatedUser(profile?.userId) ? profile.userId.email : "") ||
+                          ""
+                        }
                         disabled
                         className="w-full bg-slate-100/50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-semibold text-slate-400 cursor-not-allowed focus:outline-none"
                         placeholder="email@example.com"
@@ -378,7 +388,7 @@ const ProviderProfile: React.FC = () => {
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">Professional Bio</label>
                       <textarea
                         value={bio}
-                        onChange={(e) => { setBio(e.target.value); setErrors(prev => ({...prev, bio: ""})); }}
+                        onChange={(e) => { setBio(e.target.value); setErrors(prev => ({ ...prev, bio: "" })); }}
                         rows={4}
                         className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 resize-none ${errors.bio ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="Tell clients about your skills, experience, and background..."
@@ -396,7 +406,7 @@ const ProviderProfile: React.FC = () => {
                     <h3 className="text-lg font-black text-slate-900 mb-1">Account Security</h3>
                     <p className="text-slate-400 text-xs font-semibold">Update your account password regularly to keep it secure.</p>
                   </div>
-                  
+
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
@@ -447,7 +457,7 @@ const ProviderProfile: React.FC = () => {
                       <input
                         type="number"
                         value={hourlyRate}
-                        onChange={(e) => { setHourlyRate(Number(e.target.value)); setErrors(prev => ({...prev, hourlyRate: ""})); }}
+                        onChange={(e) => { setHourlyRate(Number(e.target.value)); setErrors(prev => ({ ...prev, hourlyRate: "" })); }}
                         className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.hourlyRate ? 'border-red-400' : 'border-slate-100'}`}
                         placeholder="500"
                         min="1"
@@ -507,11 +517,11 @@ const ProviderProfile: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {profile.documents.map((doc: ProviderDocumentEntry, idx: number) => {
                           const rawUrl = typeof doc === "string" ? doc : doc.url;
-                          const docUrl = rawUrl.startsWith("http") 
-                            ? rawUrl 
+                          const docUrl = rawUrl.startsWith("http")
+                            ? rawUrl
                             : `http://localhost:5000/${rawUrl.replace(/\\/g, "/")}`;
                           return (
-                            <a 
+                            <a
                               key={idx}
                               href={docUrl}
                               target="_blank"
@@ -523,7 +533,7 @@ const ProviderProfile: React.FC = () => {
                                   <FileText size={18} />
                                 </div>
                                 <div className="text-left">
-                                  <p className="text-xs font-bold text-slate-700 capitalize">{doc.docType}</p>
+                                  <p className="text-xs font-bold text-slate-700 capitalize">{typeof doc !== "string" ? doc.docType : ""}</p>
                                   <p className="text-[10px] font-bold text-slate-400">View document</p>
                                 </div>
                               </div>
@@ -540,9 +550,8 @@ const ProviderProfile: React.FC = () => {
                     {/* Identity Proof */}
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400">Upload Identity Proof</label>
-                      <div className={`border-2 border-dashed rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50 ${
-                        identityFiles && identityFiles.length > 0 ? "border-blue-400" : "border-slate-200"
-                      }`}>
+                      <div className={`border-2 border-dashed rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50 ${identityFiles && identityFiles.length > 0 ? "border-blue-400" : "border-slate-200"
+                        }`}>
                         <input
                           type="file"
                           multiple
@@ -567,9 +576,8 @@ const ProviderProfile: React.FC = () => {
                     {/* Professional License */}
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400">Upload Professional License</label>
-                      <div className={`border-2 border-dashed rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50 ${
-                        licenseFiles && licenseFiles.length > 0 ? "border-blue-400" : "border-slate-200"
-                      }`}>
+                      <div className={`border-2 border-dashed rounded-2xl p-6 text-center hover:border-blue-600 transition-colors cursor-pointer relative bg-slate-50 ${licenseFiles && licenseFiles.length > 0 ? "border-blue-400" : "border-slate-200"
+                        }`}>
                         <input
                           type="file"
                           multiple
@@ -608,7 +616,7 @@ const ProviderProfile: React.FC = () => {
                       <input
                         type="text"
                         value={accountHolderName}
-                        onChange={(e) => { setAccountHolderName(e.target.value); setErrors(prev => ({...prev, accountHolderName: ""})); }}
+                        onChange={(e) => { setAccountHolderName(e.target.value); setErrors(prev => ({ ...prev, accountHolderName: "" })); }}
                         className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.accountHolderName ? 'border-red-400' : 'border-slate-200'}`}
                         placeholder="John Doe"
                       />
@@ -620,7 +628,7 @@ const ProviderProfile: React.FC = () => {
                       <input
                         type="text"
                         value={bankName}
-                        onChange={(e) => { setBankName(e.target.value); setErrors(prev => ({...prev, bankName: ""})); }}
+                        onChange={(e) => { setBankName(e.target.value); setErrors(prev => ({ ...prev, bankName: "" })); }}
                         className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.bankName ? 'border-red-400' : 'border-slate-200'}`}
                         placeholder="State Bank of India"
                       />
@@ -632,7 +640,7 @@ const ProviderProfile: React.FC = () => {
                       <input
                         type="text"
                         value={accountNumber}
-                        onChange={(e) => { setAccountNumber(e.target.value.replace(/\D/g, '')); setErrors(prev => ({...prev, accountNumber: ""})); }}
+                        onChange={(e) => { setAccountNumber(e.target.value.replace(/\D/g, '')); setErrors(prev => ({ ...prev, accountNumber: "" })); }}
                         className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.accountNumber ? 'border-red-400' : 'border-slate-200'}`}
                         placeholder="000000000000"
                         maxLength={18}
@@ -645,7 +653,7 @@ const ProviderProfile: React.FC = () => {
                       <input
                         type="text"
                         value={ifscCode}
-                        onChange={(e) => { setIfscCode(e.target.value.toUpperCase()); setErrors(prev => ({...prev, ifscCode: ""})); }}
+                        onChange={(e) => { setIfscCode(e.target.value.toUpperCase()); setErrors(prev => ({ ...prev, ifscCode: "" })); }}
                         className={`w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all focus:outline-none text-slate-800 ${errors.ifscCode ? 'border-red-400' : 'border-slate-200'}`}
                         placeholder="ABCD0123456"
                         maxLength={11}
@@ -693,11 +701,10 @@ const ProviderProfile: React.FC = () => {
                             <button
                               type="button"
                               onClick={(e) => { e.preventDefault(); handleLikeReview(rev._id); }}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                                rev.likedByProvider 
-                                  ? "bg-rose-50 border-rose-100 text-rose-600" 
-                                  : "bg-white border-slate-200 text-slate-500 hover:bg-slate-100"
-                              }`}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${rev.likedByProvider
+                                ? "bg-rose-50 border-rose-100 text-rose-600"
+                                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-100"
+                                }`}
                             >
                               <Heart size={14} className={rev.likedByProvider ? "fill-rose-600" : ""} />
                               {rev.likedByProvider ? "Liked" : "Like"}
@@ -716,9 +723,9 @@ const ProviderProfile: React.FC = () => {
 
       </div>
 
-      <ChangePasswordModal 
-        isOpen={isPasswordModalOpen} 
-        onClose={() => setIsPasswordModalOpen(false)} 
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
       />
     </div>
   );

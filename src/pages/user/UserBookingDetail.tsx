@@ -710,7 +710,6 @@ const UserBookingDetail: React.FC = () => {
           isOpen={isReviewModalOpen}
           onClose={() => setIsReviewModalOpen(false)}
           bookingId={booking._id}
-          providerId={typeof booking.providerId === "object" ? booking.providerId._id : booking.providerId}
           providerName={providerUser.name}
           onSuccess={() => { setIsReviewModalOpen(false); fetchBookingData(); }}
         />

@@ -76,6 +76,16 @@ const AdminProviderDetail: React.FC = () => {
     );
   }
 
+  if (!provider) {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <p className="text-slate-500 font-medium">
+        Provider not found.
+      </p>
+    </div>
+  );
+}
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header */}

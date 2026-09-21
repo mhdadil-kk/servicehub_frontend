@@ -12,21 +12,25 @@ import {
   Trash2,
   ShieldAlert,
   ImagePlus,
-  X
+  X,
+  Smile
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import toast from "react-hot-toast";
 import { useChat } from "../hooks/useChat";
-import { chatApi } from "../api/chat.service";
+import { chatApi, isPopulatedChatBooking } from "../api/chat.service";
 import type { Message, Conversation, Participant } from "../api/chat.service";
 import { getSocket } from "../socket";
 import ReportModal from "../components/shared/ReportModal";
+import { formatChatListTime } from "../utils/formatChatTime";
+import EmojiPicker, { Theme } from "emoji-picker-react";
+import type { EmojiClickData } from "emoji-picker-react";
 
 const ChatPage: React.FC = () => {
   const { user } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  
+
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const {
@@ -46,21 +50,62 @@ const ChatPage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handleCloseMenu = () => setContextMenu(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(e.target as Node) &&
+        emojiButtonRef.current &&
+        !emojiButtonRef.current.contains(e.target as Node)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setContextMenu(null);
+      if (e.key === "Escape") {
+        setContextMenu(null);
+        setShowEmojiPicker(false);
+      }
     };
     window.addEventListener("click", handleCloseMenu);
+    document.addEventListener("mousedown", handleClickOutside);
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("click", handleCloseMenu);
+      document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    const emoji = emojiData.emoji;
+    const input = inputRef.current;
+
+    if (!input) {
+      setNewMessage(prev => prev + emoji);
+      return;
+    }
+
+    const start = input.selectionStart ?? newMessage.length;
+    const end = input.selectionEnd ?? newMessage.length;
+    const updated = newMessage.slice(0, start) + emoji + newMessage.slice(end);
+
+    setNewMessage(updated);
+
+    const newCursor = start + emoji.length;
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(newCursor, newCursor);
+    });
+  };
 
   const handleContextMenu = (e: React.MouseEvent, conversationId: string) => {
     e.preventDefault();
@@ -144,7 +189,11 @@ const ChatPage: React.FC = () => {
       if (qConversationId) {
         found = list.find(c => c._id === qConversationId);
       } else if (qBookingId) {
-        found = list.find(c => c.bookingId?._id === qBookingId);
+        found = list.find(
+          c =>
+            isPopulatedChatBooking(c.bookingId) &&
+            c.bookingId._id === qBookingId
+        );
       }
 
       if (found) {
@@ -169,7 +218,11 @@ const ChatPage: React.FC = () => {
       if (qConversationId) {
         found = conversations.find(c => c._id === qConversationId);
       } else if (qBookingId) {
-        found = conversations.find(c => c.bookingId?._id === qBookingId);
+        found = conversations.find(
+          c =>
+            isPopulatedChatBooking(c.bookingId) &&
+            c.bookingId._id === qBookingId
+        );
       }
 
       if (found && found._id !== selectedConversation?._id) {
@@ -346,6 +399,17 @@ const ChatPage: React.FC = () => {
     return partner?.name || "Member";
   };
 
+  const selectedBooking = isPopulatedChatBooking(
+    selectedConversation?.bookingId
+  )
+    ? selectedConversation.bookingId
+    : null;
+
+  const selectedBookingId =
+    typeof selectedConversation?.bookingId === "string"
+      ? selectedConversation.bookingId
+      : selectedBooking?._id;
+
   return (
     <div className="h-[calc(100vh-120px)] flex -m-8 overflow-hidden bg-slate-50">
 
@@ -408,7 +472,14 @@ const ChatPage: React.FC = () => {
                     })()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-black truncate ${isActive ? "text-white" : "text-slate-900"}`}>{name}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <p className={`text-xs font-black truncate ${isActive ? "text-white" : "text-slate-900"}`}>{name}</p>
+                      {(c.lastMessage?.createdAt || c.updatedAt) && (
+                        <span className={`text-[10px] font-medium shrink-0 ${isActive ? "text-blue-100" : "text-slate-400"}`}>
+                          {formatChatListTime(c.lastMessage?.createdAt || c.updatedAt)}
+                        </span>
+                      )}
+                    </div>
                     <p className={`text-[10px] font-semibold truncate ${isActive ? "text-blue-100" : "text-slate-400"} mt-0.5`}>
                       {lastText}
                     </p>
@@ -444,9 +515,9 @@ const ChatPage: React.FC = () => {
                   return (
                     <div className="relative w-10 h-10 shrink-0">
                       <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                        <img 
-                          src={headerPartner?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${getPartnerName(selectedConversation)}`} 
-                          alt="" 
+                        <img
+                          src={headerPartner?.profilePhoto || `https://api.dicebear.com/7.x/initials/svg?seed=${getPartnerName(selectedConversation)}`}
+                          alt=""
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -481,19 +552,19 @@ const ChatPage: React.FC = () => {
 
               {/* Booking schedule details and Report button */}
               <div className="flex items-center gap-4">
-                {selectedConversation.bookingId && typeof selectedConversation.bookingId === 'object' && selectedConversation.bookingId.slot && (
+                {selectedBooking?.slot && (
                   <div className="hidden md:flex gap-6 text-[10px] font-bold text-slate-400">
                     <div className="flex items-center gap-1.5">
                       <Calendar size={13} />
-                      <span>{selectedConversation.bookingId.date}</span>
+                      <span>{selectedBooking.date}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Clock size={13} />
-                      <span>{selectedConversation.bookingId.slot.start} - {selectedConversation.bookingId.slot.end}</span>
+                      <span>{selectedBooking.slot.start} - {selectedBooking.slot.end}</span>
                     </div>
                   </div>
                 )}
-                
+
                 <button
                   onClick={() => setIsReportModalOpen(true)}
                   className="w-9 h-9 rounded-full bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-colors border border-slate-100"
@@ -540,7 +611,7 @@ const ChatPage: React.FC = () => {
                             <p className={`text-[11px] font-medium leading-relaxed ${isMe ? 'text-blue-700' : 'text-slate-500'}`}>{msg.content}</p>
                           </div>
                           <div className={`p-3 flex items-center justify-between ${isMe ? 'bg-blue-50/50' : 'bg-white'}`}>
-                            <button 
+                            <button
                               onClick={() => {
                                 if (user?.role === "provider" && msg.bookingId) {
                                   navigate(`/provider/bookings/${msg.bookingId}`);
@@ -567,17 +638,15 @@ const ChatPage: React.FC = () => {
                           </div>
                         </div>
                       ) : msg.messageType === "image" && !msg.isDeleted ? (
-                        <div className={`max-w-[75%] md:max-w-[55%] rounded-[24px] p-2 shadow-sm relative overflow-hidden transition-colors ${
-                          isMe
-                            ? "bg-blue-600 rounded-br-none"
-                            : "bg-white border border-slate-100 rounded-bl-none"
-                        }`}>
+                        <div className={`max-w-[75%] md:max-w-[55%] rounded-[24px] p-2 shadow-sm relative overflow-hidden transition-colors ${isMe
+                          ? "bg-blue-600 rounded-br-none"
+                          : "bg-white border border-slate-100 rounded-bl-none"
+                          }`}>
                           <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer">
                             <img src={msg.imageUrl} alt="Chat attachment" className="w-full h-auto max-h-[300px] object-cover rounded-[18px]" />
                           </a>
-                          <div className={`flex items-center justify-end gap-1 text-[9px] mt-1.5 font-semibold px-2 pb-0.5 ${
-                            isMe ? "text-blue-200" : "text-slate-400"
-                          }`}>
+                          <div className={`flex items-center justify-end gap-1 text-[9px] mt-1.5 font-semibold px-2 pb-0.5 ${isMe ? "text-blue-200" : "text-slate-400"
+                            }`}>
                             <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             {isMe && (
                               msg.read ? (
@@ -591,18 +660,16 @@ const ChatPage: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className={`max-w-[70%] rounded-[24px] px-5 py-3 shadow-sm text-xs leading-relaxed relative transition-colors ${
-                          msg.isDeleted
-                            ? "bg-slate-50 border border-slate-200 text-slate-400 italic" 
-                            : isMe
-                              ? "bg-blue-600 text-white rounded-br-none"
-                              : "bg-white border border-slate-100 text-slate-800 rounded-bl-none"
-                        }`}>
+                        <div className={`max-w-[70%] rounded-[24px] px-5 py-3 shadow-sm text-xs leading-relaxed relative transition-colors ${msg.isDeleted
+                          ? "bg-slate-50 border border-slate-200 text-slate-400 italic"
+                          : isMe
+                            ? "bg-blue-600 text-white rounded-br-none"
+                            : "bg-white border border-slate-100 text-slate-800 rounded-bl-none"
+                          }`}>
                           <p className={msg.isDeleted ? "opacity-75" : ""}>{msg.content}</p>
 
-                          <div className={`flex items-center justify-end gap-1 text-[9px] mt-1.5 font-semibold ${
-                            msg.isDeleted ? "text-slate-300" : isMe ? "text-blue-200" : "text-slate-400"
-                          }`}>
+                          <div className={`flex items-center justify-end gap-1 text-[9px] mt-1.5 font-semibold ${msg.isDeleted ? "text-slate-300" : isMe ? "text-blue-200" : "text-slate-400"
+                            }`}>
                             <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             {isMe && !msg.isDeleted && (
                               msg.read ? (
@@ -646,26 +713,58 @@ const ChatPage: React.FC = () => {
                 onSubmit={handleSendMessage}
                 className="px-6 py-4 flex gap-3 items-center"
               >
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageSelect} 
-                  accept="image/jpeg, image/png, image/webp" 
-                  className="hidden" 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageSelect}
+                  accept="image/jpeg, image/png, image/webp"
+                  className="hidden"
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploadingImage}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${
-                    selectedImage ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-blue-600"
-                  }`}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${selectedImage ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                    }`}
                   title="Attach image"
                 >
                   <ImagePlus size={20} />
                 </button>
-                
+
+                <div className="relative">
+                  <button
+                    ref={emojiButtonRef}
+                    type="button"
+                    onClick={() => setShowEmojiPicker(prev => !prev)}
+                    disabled={isUploadingImage}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${showEmojiPicker
+                      ? "bg-blue-50 text-blue-600 border border-blue-200"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                      }`}
+                    title="Insert emoji"
+                  >
+                    <Smile size={20} />
+                  </button>
+
+                  {showEmojiPicker && (
+                    <div
+                      ref={emojiPickerRef}
+                      className="absolute bottom-16 left-0 z-50 shadow-2xl rounded-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-100"
+                    >
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        autoFocusSearch={false}
+                        theme={Theme.LIGHT}
+                        width={320}
+                        height={400}
+                        lazyLoadEmojis
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <input
+                  ref={inputRef}
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
@@ -806,11 +905,7 @@ const ChatPage: React.FC = () => {
           isOpen={isReportModalOpen}
           onClose={() => setIsReportModalOpen(false)}
           reportedId={selectedConversation.participants.find(p => p._id !== user?.id)?._id || ""}
-          bookingId={
-            selectedConversation.bookingId 
-              ? (typeof selectedConversation.bookingId === 'object' ? selectedConversation.bookingId._id : selectedConversation.bookingId) 
-              : undefined
-          }
+          bookingId={selectedBookingId || ""}
           reportedName={selectedConversation.participants.find(p => p._id !== user?.id)?.name}
         />
       )}

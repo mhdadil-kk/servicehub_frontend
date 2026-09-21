@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Mail, ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
 import logo from "../../assets/logo.png";
 import { validateEmail } from "../../utils/validation";
+import toast from "react-hot-toast";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");

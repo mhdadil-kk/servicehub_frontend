@@ -317,6 +317,16 @@ const ProviderOnboarding: React.FC = () => {
     }
   };
 
+  const selectedServiceId =
+  typeof selectedService === "string"
+    ? selectedService
+    : selectedService?._id;
+
+const selectedServiceName =
+  typeof selectedService === "object" && selectedService
+    ? selectedService.name
+    : "this service";
+
   const prevStep = () => {
     const prev = (currentStep - 1) as Step;
     setCurrentStep(prev);
@@ -573,14 +583,14 @@ const ProviderOnboarding: React.FC = () => {
                           key={service._id}
                           onClick={() => { setSelectedService(service); clearError("service"); }}
                           className={`relative border-2 rounded-[32px] p-6 flex items-center justify-between cursor-pointer transition-all duration-300 group ${
-                            (selectedService?._id === service._id || selectedService === service._id)
+                            (selectedServiceId === service._id)
                             ? "border-blue-600 bg-blue-50/30 ring-8 ring-blue-600/5"
                             : "border-slate-50 bg-slate-50/30 hover:border-blue-200 hover:bg-white"
                           }`}
                         >
                           <div className="flex items-center gap-4">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${
-                              (selectedService?._id === service._id || selectedService === service._id)
+                              (selectedServiceId === service._id)
                               ? "bg-blue-600 text-white rotate-6 scale-110"
                               : "bg-white text-slate-400 group-hover:text-blue-600"
                             }`}>
@@ -591,7 +601,7 @@ const ProviderOnboarding: React.FC = () => {
                               <p className="text-[10px] font-bold text-slate-400 line-clamp-1 mt-0.5">{service.description}</p>
                             </div>
                           </div>
-                          {(selectedService?._id === service._id || selectedService === service._id) && (
+                          {(selectedServiceId === service._id) && (
                             <div className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg animate-in zoom-in">
                               <Check size={14} />
                             </div>
@@ -610,7 +620,7 @@ const ProviderOnboarding: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="text-xl font-black text-slate-900">Set Your Hourly Rate</h4>
-                        <p className="text-sm font-medium text-slate-400">Specify what you charge for <b>{selectedService.name || 'this service'}</b></p>
+                        <p className="text-sm font-medium text-slate-400">Specify what you charge for <b>{selectedServiceName}</b></p>
                       </div>
                     </div>
                     <div className="max-w-md">
@@ -629,7 +639,7 @@ const ProviderOnboarding: React.FC = () => {
                       <div className="mt-6 flex gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100/50">
                         <HelpCircle className="text-blue-500 shrink-0" size={20} />
                         <p className="text-xs font-semibold text-blue-900/60 leading-relaxed">
-                          Most professionals in <b>{selectedService.name || 'this category'}</b> set their rates between â‚¹500 and â‚¹1,500 based on experience.
+                          Most professionals in <b>{selectedServiceName}</b> set their rates between â‚¹500 and â‚¹1,500 based on experience.
                         </p>
                       </div>
                     </div>

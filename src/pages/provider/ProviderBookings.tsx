@@ -19,6 +19,8 @@ import toast from "react-hot-toast";
 import { useBooking } from "../../hooks/useBooking";
 import type { Booking } from "../../api/booking.service";
 import { isPopulatedUser, isPopulatedService, isPopulatedAddress } from "../../types/domain.types";
+import ReportModal from "../../components/shared/ReportModal";
+
 
 const ProviderBookings: React.FC = () => {
   const { bookings, isLoadingBookings: isLoading, fetchProviderBookings, acceptBooking, cancelBooking } = useBooking();

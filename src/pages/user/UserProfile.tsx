@@ -24,8 +24,8 @@ const UserProfile: React.FC = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-  const joinedDate = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString("en-IN", {
+  const joinedDate = user?.createdAt
+    ? new Date(user.createdAt).toLocaleDateString("en-IN", {
         month: "long",
         year: "numeric",
       })

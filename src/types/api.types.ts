@@ -6,7 +6,7 @@ export interface ApiError {
 export type ApiResponse<T = unknown> = {
   success: boolean;
   message?: string;
-  data?: T;
+  data: T;
   errors?: ApiError[] | string;
   timestamp: string;
 };
@@ -21,7 +21,7 @@ export interface IUser {
   is_verified: boolean;
   status: "approved" | "rejected" | "pending" | "in_review";
   isDeleted: boolean;
-  totalBookings?: number; 
+  totalBookings?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }

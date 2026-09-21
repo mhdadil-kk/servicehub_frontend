@@ -1,18 +1,26 @@
 import axiosInstance from "./axios.instance";
 import type { ApiResponse } from "../types/api.types";
 import { API_ROUTES } from "../constants/api.routes";
+import type {
+  PopulatedUser,
+  PopulatedService,
+  ProviderDocumentEntry,
+} from "../types/domain.types";
 
 export interface IProviderProfile {
   _id: string;
-  userId: string;
+  userId: string | PopulatedUser;
   bio?: string;
   profilePhoto?: string;
-  serviceId?: string;
+  serviceId?: string | PopulatedService;
   hourlyRate?: number;
   serviceRadius?: number;
   address?: string;
-  location?: { type: string; coordinates: number[] };
-  documents?: Array<{ docType: string; url: string }>;
+  location?: {
+    type: string;
+    coordinates: number[];
+  };
+  documents?: ProviderDocumentEntry[];
   onboardingStep: number;
   onboardingStatus: "pending" | "in_review" | "approved" | "rejected";
   rejectionReason?: string;
@@ -30,10 +38,42 @@ export interface IProviderProfile {
 
 export interface IProviderAvailability {
   providerId: string;
+
+  startDate?: string | null;
+  endDate?: string | null;
+
+  weeklySchedule?: Record<
+    string,
+    {
+      isAvailable: boolean;
+      slots: Array<{
+        id: string;
+        start: string;
+        end: string;
+        startDate?: string;
+        endDate?: string;
+        rrule?: string;
+      }>;
+    }
+  >;
+
+  overrides?: Array<{
+    id: string;
+    date: string;
+    isAvailable: boolean;
+    slots: Array<{
+      id: string;
+      start: string;
+      end: string;
+      startDate?: string;
+      endDate?: string;
+      rrule?: string;
+    }>;
+  }>;
+
   rrules?: string[];
   exdates?: string[];
 }
-
 export const providerApi = {
   updateProfile: (formData: FormData) =>
     axiosInstance.put<unknown, ApiResponse<IProviderProfile>>(API_ROUTES.PROVIDER.PROFILE, formData, {

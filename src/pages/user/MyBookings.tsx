@@ -33,6 +33,7 @@ import {
   isPopulatedAddress,
 } from "../../types/domain.types";
 import { getErrorMessage } from "../../utils/errors";
+import type { PopulatedService } from "../../types/domain.types";
 
 function populatedProviderToModalProvider(p: PopulatedProviderProfile): Provider {
   const user = isPopulatedUser(p.userId)

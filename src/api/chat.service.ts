@@ -29,12 +29,31 @@ export interface Participant {
 export interface Conversation {
   _id: string;
   participants: Participant[];
-  bookingId?: string | null;
+  bookingId?: string | ChatBooking | null;
   lastMessage?: Message | null;
   unreadCount?: number;
   providerServiceName?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ChatBooking {
+  _id: string;
+  date: string;
+  slot?: {
+    start: string;
+    end: string;
+  };
+}
+
+export function isPopulatedChatBooking(
+  value: Conversation["bookingId"]
+): value is ChatBooking {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "_id" in value
+  );
 }
 
 export const chatApi = {
@@ -73,3 +92,4 @@ export const chatApi = {
     return { data };
   },
 };
+

@@ -30,11 +30,11 @@ const AdminDashboard: React.FC = () => {
   }, [timeRange]);
 
   const TREND_COLORS: Record<string, string> = {
-    "bg-blue-500":    "bg-blue-500",
+    "bg-blue-500": "bg-blue-500",
     "bg-emerald-500": "bg-emerald-500",
-    "bg-violet-500":  "bg-violet-500",
-    "bg-orange-500":  "bg-orange-500",
-    "bg-pink-500":    "bg-pink-500",
+    "bg-violet-500": "bg-violet-500",
+    "bg-orange-500": "bg-orange-500",
+    "bg-pink-500": "bg-pink-500",
   };
 
   if (loading) {
@@ -45,8 +45,8 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
-  const userGrowth: { month: string; value: number }[] = stats?.userGrowth || [];
-  const bookingTrends: { label: string; val: number; color: string }[] = stats?.bookingTrends || [];
+  const userGrowth = stats?.userGrowth || [];
+  const bookingTrends = stats?.bookingTrends || [];
   const totalRevenue: number = stats?.totalRevenue || 0;
 
   return (
@@ -177,7 +177,7 @@ const AdminDashboard: React.FC = () => {
             ) : (
               bookingTrends.map((item, i) => {
                 const maxVal = Math.max(...bookingTrends.map((d) => d.val), 1);
-                const colorClass = TREND_COLORS[item.color] ?? "bg-blue-500";
+                const colorClass = TREND_COLORS[item.color ?? "bg-blue-500"] ?? "bg-blue-500";
                 return (
                   <div key={i} className="space-y-1.5">
                     <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider">

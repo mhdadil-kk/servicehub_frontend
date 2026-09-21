@@ -288,7 +288,6 @@ const ProviderBookingDetail: React.FC = () => {
         setBooking(detail);
       }
     } catch {
-      // Handled by hook error notification
     }
   };
 

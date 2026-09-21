@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { validateRequired } from "../../utils/validation";
 import { useAdmin } from "../../hooks/useAdmin";
+import toast from "react-hot-toast";
 
 const AdminServices: React.FC = () => {
   const { services, loading, fetchAdminServices, addService, deleteService } = useAdmin();

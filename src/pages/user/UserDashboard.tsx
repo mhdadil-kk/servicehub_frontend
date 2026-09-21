@@ -8,7 +8,10 @@ import {
   Loader2
 } from "lucide-react";
 import { useDashboard } from "../../hooks/useDashboard";
-import type { DashboardBookingSummary } from "../../types/domain.types";
+import type {
+  DashboardBookingSummary,
+  UserDashboardData,
+} from "../../types/domain.types";
 import { getUserName, isPopulatedProvider, isPopulatedService } from "../../types/domain.types";
 
 const UserDashboard: React.FC = () => {
@@ -26,8 +29,9 @@ const UserDashboard: React.FC = () => {
       </div>
     );
   }
+  const userData = data as UserDashboardData;
 
-  const { totalBookings, upcomingBookings, completedBookings, totalSpent, recentBookings } = data;
+  const { totalBookings, upcomingBookings, completedBookings, totalSpent, recentBookings } = userData;
 
   const stats = [
     { label: "Total Bookings", value: totalBookings, icon: Calendar, color: "text-blue-600 bg-blue-50" },
@@ -76,6 +80,7 @@ const UserDashboard: React.FC = () => {
                 <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Provider Name</th>
                 <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Service</th>
                 <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Slot Time</th>
                 <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Status</th>
               </tr>
             </thead>
@@ -112,6 +117,7 @@ const UserDashboard: React.FC = () => {
                       </td>
                       <td className="px-8 py-4 text-sm font-semibold text-slate-500">{serviceName}</td>
                       <td className="px-8 py-4 text-sm font-semibold text-slate-500 whitespace-nowrap">{booking.date}</td>
+                       <td className="px-8 py-4 text-sm font-semibold text-slate-500 whitespace-nowrap">{booking.slot?.start}- {booking.slot?.end}</td>
                       <td className="px-8 py-4 text-right">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${
                           booking.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :

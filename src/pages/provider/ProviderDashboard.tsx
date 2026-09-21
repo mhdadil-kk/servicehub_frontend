@@ -1,16 +1,19 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDashboard } from "../../hooks/useDashboard";
-import { 
-  BarChart3, 
-  CheckCircle2, 
-  Clock, 
-  Wallet, 
+import {
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  Wallet,
   Calendar,
   Loader2,
 } from "lucide-react";
 
-import type { DashboardBookingSummary } from "../../types/domain.types";
+import type {
+  DashboardBookingSummary,
+  ProviderDashboardData,
+} from "../../types/domain.types";
 
 const ProviderDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -27,8 +30,9 @@ const ProviderDashboard: React.FC = () => {
       </div>
     );
   }
+  const providerData = data as ProviderDashboardData;
 
-  const { totalRequests, activeBookings, completedJobs, totalEarnings, recentBookings } = data;
+  const { totalRequests, activeBookings, completedJobs, totalEarnings, recentBookings } = providerData;
 
   const stats = [
     { label: "Total Requests", value: totalRequests, icon: BarChart3, color: "text-blue-600 bg-blue-50" },
