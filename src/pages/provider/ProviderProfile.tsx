@@ -14,6 +14,7 @@ import {
   isPopulatedUser,
   isPopulatedService,
 } from "../../types/domain.types";
+import { API_ORIGIN } from "../../constants/api";
 
 const ProviderProfile: React.FC = () => {
   const { user, setUser } = useAuthStore();
@@ -78,7 +79,7 @@ const ProviderProfile: React.FC = () => {
         if (prof.profilePhoto) {
           const photoUrl = prof.profilePhoto.startsWith("http")
             ? prof.profilePhoto
-            : `http://localhost:5000/${prof.profilePhoto.replace(/\\/g, "/")}`;
+            : `${API_ORIGIN}/${prof.profilePhoto.replace(/\\/g, "/")}`;
           setProfilePhotoUrl(photoUrl);
         }
 
@@ -519,7 +520,7 @@ const ProviderProfile: React.FC = () => {
                           const rawUrl = typeof doc === "string" ? doc : doc.url;
                           const docUrl = rawUrl.startsWith("http")
                             ? rawUrl
-                            : `http://localhost:5000/${rawUrl.replace(/\\/g, "/")}`;
+                            : `${API_ORIGIN}/${rawUrl.replace(/\\/g, "/")}`;
                           return (
                             <a
                               key={idx}
